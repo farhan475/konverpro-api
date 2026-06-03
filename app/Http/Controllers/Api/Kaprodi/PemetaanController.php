@@ -5,7 +5,6 @@ namespace App\Http\Controllers\Api\Kaprodi;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\KurikulumMk;
-use App\Models\Prodi;
 
 class PemetaanController extends Controller
 {
@@ -14,17 +13,20 @@ class PemetaanController extends Controller
      */
     public function index(Request $request)
     {
-        $id_user = $request->user()->id;
+        $user = $request->user();
         
-        $kurikulum = KurikulumMk::whereHas('prodi', function($q) use ($id_user) {
-                $q->where('id_kaprodi', $id_user);
+        $kurikulum = KurikulumMk::whereHas('prodi', function($q) use ($user) {
+                $q->where('id_kaprodi', $user->id);
             })
             ->with('prodi')
             ->orderBy('semester')
             ->orderBy('nama_mk')
             ->get();
 
-        return response()->json($kurikulum);
+        return response()->json([
+            'success' => true,
+            'data' => $kurikulum
+        ]);
     }
 
     /**

@@ -77,6 +77,7 @@ class KurikulumController extends Controller
         return response()->json($mk);
     }
 
+
     /**
      * Menghapus mata kuliah.
      */
@@ -91,5 +92,14 @@ class KurikulumController extends Controller
         $mk->delete();
 
         return response()->json(['message' => 'Mata kuliah berhasil dihapus.']);
+    }
+
+    /**
+     * Import mata kuliah massal.
+     */
+    public function import(\App\Http\Requests\Kurikulum\ImportKurikulumRequest $request, \App\Services\Kurikulum\ImportKurikulumService $service)
+    {
+        $count = $service->import($request->id_prodi, $request->excel_data);
+        return response()->json(['message' => "{$count} mata kuliah berhasil diimpor."], 201);
     }
 }

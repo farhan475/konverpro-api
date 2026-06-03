@@ -44,30 +44,5 @@ class DashboardController extends Controller
             ->orderBy('total', 'desc')
             ->get();
 
-        $prodi_performance = Prodi::where('id_kampus', $id_kampus)
-            ->with(['kaprodi'])
-            ->withCount(['pendaftar as total_pendaftar'])
-            ->withCount(['pendaftar as pending_validasi' => function ($query) {
-                $query->where('status', 'Pending Kaprodi');
-            }])
-            ->withCount(['pendaftar as approved' => function ($query) {
-                $query->where('status', 'Approved');
-            }])
-            ->withCount(['pendaftar as butuh_tindak_lanjut' => function ($query) {
-                $query->whereIn('status', ['Revisi', 'Rejected']);
-            }])
-            ->get()
-            ->map(function ($prodi) {
-                $prodi->avg_sks_diakui = (float) Pendaftar::where('id_prodi', $prodi->id)->avg('total_sks_diakui') ?? 0.0;
-                return $prodi;
-            });
-
-        return response()->json([
-            'kampus' => $kampus,
-            'stats' => $stats,
-            'status_breakdown' => $status_breakdown,
-            'prodi_performance' => $prodi_performance,
-            'nama_admin' => $user->nama_lengkap,
-        ], 200);
-    }
+        $prodi_performance = Prodi::where('id_kampus', $id_kampus)\n            ->with(['kaprodi'])\n            ->withCount(['pendaftar as total_pendaftar'])\n            ->withCount(['pendaftar as pending_validasi' => function ($query) {\n                $query->where('status', 'Pending Kaprodi');\n            }])\n            ->withCount(['pendaftar as approved' => function ($query) {\n                $query->where('status', 'Approved');\n            }])\n            ->withCount(['pendaftar as butuh_tindak_lanjut' => function ($query) {\n                $query->whereIn('status', ['Revisi', 'Rejected']);\n            }])\n            ->get()\n            ->map(function ($prodi) {\n                $prodi->avg_sks_diakui = (float) Pendaftar::where('id_prodi', $prodi->id)->avg('total_sks_diakui') ?? 0.0;\n                return $prodi;\n            });\n\n        $registration_chart = Pendaftar::where('id_kampus', $id_kampus)\n            ->select(\n                DB::raw('DATE_FORMAT(created_at, \"%Y-%m\") as month'),\n                DB::raw('COUNT(*) as total')\n            )\n            ->groupBy('month')\n            ->orderBy('month', 'asc')\n            ->get();\n\n        $ai_summary = [\n            'total_reference_keywords' => DB::table('mk_referensi_ai')->count(),\n            'total_described_courses' => KurikulumMk::whereHas('prodi', function($q) use ($id_kampus) { $q->where('id_kampus', $id_kampus); })->whereNotNull('deskripsi_singkat')->count(),\n            'total_courses' => $stats['total_mk'],\n        ];\n\n        return response()->json([\n            'kampus' => $kampus,\n            'stats' => $stats,\n            'status_breakdown' => $status_breakdown,\n            'prodi_performance' => $prodi_performance,\n            'registration_chart' => $registration_chart,\n            'ai_summary' => $ai_summary,\n            'nama_admin' => $user->nama_lengkap,\n        ], 200);\n    }
 }

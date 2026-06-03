@@ -33,5 +33,37 @@ class DatabaseSeeder extends Seeder
             'role' => 'admin_pt',
             'status' => 'active',
         ]);
+
+        $kaprodi = \App\Models\User::create([
+            'id_kampus' => $id_kampus,
+            'nama_lengkap' => 'Kaprodi Informatika',
+            'email' => 'kaprodi@unsia.ac.id',
+            'password_hash' => \Illuminate\Support\Facades\Hash::make('password'),
+            'role' => 'kaprodi',
+            'status' => 'active',
+        ]);
+
+        $prodi = \App\Models\Prodi::create([
+            'id_kampus' => $id_kampus,
+            'id_kaprodi' => $kaprodi->id,
+            'nama_prodi' => 'Informatika',
+            'jenjang' => 'S1',
+        ]);
+
+        $mks = [
+            ['kode_mk' => 'INF101', 'nama_mk' => 'Algoritma dan Pemrograman', 'sks' => 4, 'semester' => 1],
+            ['kode_mk' => 'INF102', 'nama_mk' => 'Basis Data', 'sks' => 3, 'semester' => 2],
+            ['kode_mk' => 'INF103', 'nama_mk' => 'Pancasila', 'sks' => 2, 'semester' => 1],
+            ['kode_mk' => 'INF104', 'nama_mk' => 'Bahasa Inggris', 'sks' => 2, 'semester' => 1],
+            ['kode_mk' => 'INF105', 'nama_mk' => 'Matematika Diskrit', 'sks' => 3, 'semester' => 1],
+            ['kode_mk' => 'INF106', 'nama_mk' => 'Sistem Operasi', 'sks' => 3, 'semester' => 3],
+            ['kode_mk' => 'INF107', 'nama_mk' => 'Jaringan Komputer', 'sks' => 3, 'semester' => 3],
+        ];
+
+        foreach ($mks as $mk) {
+            \App\Models\KurikulumMk::create(array_merge($mk, ['id_prodi' => $prodi->id]));
+        }
+
+        $this->call(AiReferensiSeeder::class);
     }
 }

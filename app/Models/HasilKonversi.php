@@ -33,7 +33,7 @@ class HasilKonversi extends Model
         return $this->belongsTo(Pendaftar::class, 'id_pendaftar');
     }
 
-    public function mataKuliahTujuan(): BelongsTo
+    public function mkTujuan(): BelongsTo
     {
         return $this->belongsTo(KurikulumMk::class, 'id_mk_tujuan');
     }

@@ -19,6 +19,7 @@ class Kampus extends Model
         'logo_path',
         'paket_layanan',
         'is_official_partner',
+        'ai_config',
         'tarif_internal_custom',
         'tarif_lead_custom',
         'saldo_aktif',
@@ -27,6 +28,7 @@ class Kampus extends Model
 
     protected $casts = [
         'is_official_partner' => 'boolean',
+        'ai_config' => 'array',
         'tarif_internal_custom' => 'decimal:2',
         'tarif_lead_custom' => 'decimal:2',
         'saldo_aktif' => 'decimal:2',

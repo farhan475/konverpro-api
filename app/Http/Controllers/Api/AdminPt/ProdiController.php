@@ -12,13 +12,24 @@ class ProdiController extends Controller
     public function index(Request $request)
     {
         $id_kampus = $request->user()->id_kampus;
+        
         $prodi = Prodi::where('id_kampus', $id_kampus)
-            ->with('kaprodi')
+            ->with(['kaprodi'])
+            ->withCount(['kurikulum'])
             ->orderBy('jenjang')
             ->orderBy('nama_prodi')
             ->get();
 
-        return response()->json($prodi);
+        $kaprodi_options = User::where('id_kampus', $id_kampus)
+            ->where('role', 'kaprodi')
+            ->where('status', 'active')
+            ->get(['id', 'nama_lengkap']);
+
+        return response()->json([
+            'success' => true,
+            'data' => $prodi,
+            'kaprodi_options' => $kaprodi_options
+        ]);
     }
 
     public function store(Request $request)
@@ -29,13 +40,17 @@ class ProdiController extends Controller
             'kode_prodi' => 'nullable|string|max:20',
             'nama_prodi' => 'required|string|max:100',
             'jenjang' => 'required|in:D3,D4,S1,S2',
-            'biaya_pendaftaran' => 'numeric|min:0',
-            'biaya_kuliah' => 'numeric|min:0',
+            'biaya_pendaftaran' => 'nullable|numeric|min:0',
+            'biaya_kuliah' => 'nullable|numeric|min:0',
         ]);
 
         $prodi = Prodi::create(array_merge($validated, ['id_kampus' => $id_kampus]));
 
-        return response()->json($prodi, 201);
+        return response()->json([
+            'success' => true,
+            'message' => 'Program studi berhasil ditambahkan.',
+            'data' => $prodi
+        ], 201);
     }
 
     public function update(Request $request, $id)
@@ -48,13 +63,17 @@ class ProdiController extends Controller
             'kode_prodi' => 'nullable|string|max:20',
             'nama_prodi' => 'required|string|max:100',
             'jenjang' => 'required|in:D3,D4,S1,S2',
-            'biaya_pendaftaran' => 'numeric|min:0',
-            'biaya_kuliah' => 'numeric|min:0',
+            'biaya_pendaftaran' => 'nullable|numeric|min:0',
+            'biaya_kuliah' => 'nullable|numeric|min:0',
         ]);
 
         $prodi->update($validated);
 
-        return response()->json($prodi);
+        return response()->json([
+            'success' => true,
+            'message' => 'Program studi berhasil diperbarui.',
+            'data' => $prodi
+        ]);
     }
 
     public function destroy(Request $request, $id)
@@ -63,6 +82,9 @@ class ProdiController extends Controller
         $prodi = Prodi::where('id', $id)->where('id_kampus', $id_kampus)->firstOrFail();
         $prodi->delete();
 
-        return response()->json(['message' => 'Program studi berhasil dihapus.']);
+        return response()->json([
+            'success' => true,
+            'message' => 'Program studi berhasil dihapus.'
+        ]);
     }
 }

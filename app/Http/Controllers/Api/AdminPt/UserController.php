@@ -13,12 +13,16 @@ class UserController extends Controller
     {
         $id_kampus = $request->user()->id_kampus;
         $users = User::where('id_kampus', $id_kampus)
-            ->whereIn('role', ['staff', 'akademik'])
+            ->whereIn('role', ['staff', 'akademik', 'kaprodi'])
+            ->withCount(['prodiDipimpin as total_prodi_dipegang'])
             ->orderBy('role')
             ->orderBy('nama_lengkap')
             ->get();
 
-        return response()->json($users);
+        return response()->json([
+            'success' => true,
+            'data' => $users
+        ]);
     }
 
     public function store(Request $request)
@@ -29,7 +33,7 @@ class UserController extends Controller
             'email' => 'required|email|max:100|unique:users,email',
             'no_whatsapp' => 'nullable|string|max:20',
             'password' => 'required|string|min:6',
-            'role' => 'required|in:staff,akademik',
+            'role' => 'required|in:staff,akademik,kaprodi',
             'status' => 'required|in:active,inactive',
         ]);
 
@@ -43,7 +47,11 @@ class UserController extends Controller
             'status' => $validated['status'],
         ]);
 
-        return response()->json($user, 201);
+        return response()->json([
+            'success' => true,
+            'message' => 'User berhasil ditambahkan.',
+            'data' => $user
+        ], 201);
     }
 
     public function update(Request $request, $id)
@@ -51,7 +59,7 @@ class UserController extends Controller
         $id_kampus = $request->user()->id_kampus;
         $user = User::where('id', $id)
             ->where('id_kampus', $id_kampus)
-            ->whereIn('role', ['staff', 'akademik'])
+            ->whereIn('role', ['staff', 'akademik', 'kaprodi'])
             ->firstOrFail();
 
         $validated = $request->validate([
@@ -59,7 +67,7 @@ class UserController extends Controller
             'email' => 'required|email|max:100|unique:users,email,' . $id,
             'no_whatsapp' => 'nullable|string|max:20',
             'password' => 'nullable|string|min:6',
-            'role' => 'required|in:staff,akademik',
+            'role' => 'required|in:staff,akademik,kaprodi',
             'status' => 'required|in:active,inactive',
         ]);
 
@@ -77,7 +85,11 @@ class UserController extends Controller
 
         $user->update($updateData);
 
-        return response()->json($user);
+        return response()->json([
+            'success' => true,
+            'message' => 'User berhasil diperbarui.',
+            'data' => $user
+        ]);
     }
 
     public function destroy(Request $request, $id)
@@ -85,11 +97,14 @@ class UserController extends Controller
         $id_kampus = $request->user()->id_kampus;
         $user = User::where('id', $id)
             ->where('id_kampus', $id_kampus)
-            ->whereIn('role', ['staff', 'akademik'])
+            ->whereIn('role', ['staff', 'akademik', 'kaprodi'])
             ->firstOrFail();
 
         $user->delete();
 
-        return response()->json(['message' => 'User berhasil dihapus.']);
+        return response()->json([
+            'success' => true,
+            'message' => 'User berhasil dihapus.'
+        ]);
     }
 }

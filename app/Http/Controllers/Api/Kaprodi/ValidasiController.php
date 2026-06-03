@@ -6,117 +6,85 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use App\Models\Pendaftar;
+use App\Models\KurikulumMk;
 use App\Models\HasilKonversi;
 use App\Models\Prodi;
-use App\Models\KurikulumMk;
-use App\Models\PengaturanGlobal;
 
 class ValidasiController extends Controller
 {
     public function index(Request $request)
     {
         $user = $request->user();
-        $id_kaprodi = $user->id;
+        $prodi_ids = Prodi::where('id_kaprodi', $user->id)->pluck('id');
 
-        $pendaftar = Pendaftar::whereHas('prodi', function ($query) use ($id_kaprodi) {
-                $query->where('id_kaprodi', $id_kaprodi);
-            })
-            ->with(['prodi', 'transkripAsal', 'hasilKonversi.mkTujuan'])
-            ->orderByRaw("CASE WHEN status = 'Pending Kaprodi' THEN 0 ELSE 1 END")
+        $pendaftar = Pendaftar::whereIn('id_prodi', $prodi_ids)
+            ->whereIn('status', ['Pending Kaprodi', 'Approved', 'Revisi'])
+            ->with('prodi')
             ->orderBy('created_at', 'desc')
             ->get();
 
-        return response()->json($pendaftar);
-    }
-
-    public function process(Request $request, $id_pendaftar)
-    {
-        $validated = $request->validate([
-            'status' => 'required|in:Approved,Revisi,Rejected,Pending Kaprodi',
-            'catatan' => 'nullable|string',
-            'mappings' => 'nullable|array', // Data pemetaan manual dari Kaprodi
-            'mappings.*.id_mk_tujuan' => 'required|exists:kurikulum_mk,id',
-            'mappings.*.id_transkrip_asal' => 'nullable|exists:transkrip_asal,id',
-            'mappings.*.nilai_akhir_huruf' => 'required|string|max:5',
-            'mappings.*.sks_diakui' => 'required|integer',
-            'mappings.*.metode_pemetaan' => 'required|in:AI,Manual,Manual Kaprodi',
+        return response()->json([
+            'success' => true,
+            'data' => $pendaftar
         ]);
-
-        $user = $request->user();
-        $pendaftar = Pendaftar::where('id', $id_pendaftar)
-            ->whereHas('prodi', function ($query) use ($user) {
-                $query->where('id_kaprodi', $user->id);
-            })
-            ->firstOrFail();
-
-        try {
-            DB::beginTransaction();
-
-            // 1. Update Pemetaan (jika ada input mappings baru)
-            if ($request->has('mappings')) {
-                // Hapus pemetaan lama jika Kaprodi melakukan pemetaan ulang manual
-                HasilKonversi::where('id_pendaftar', $id_pendaftar)->delete();
-
-                $total_sks_diakui = 0;
-                foreach ($validated['mappings'] as $map) {
-                    HasilKonversi::create(array_merge($map, [
-                        'id_pendaftar' => $id_pendaftar,
-                        'metode_pemetaan' => 'Manual Kaprodi'
-                    ]));
-                    $total_sks_diakui += $map['sks_diakui'];
-                }
-                
-                $pendaftar->total_sks_diakui = $total_sks_diakui;
-            }
-
-            // 2. Logika Billing dicopot sesuai instruksi user sebelumnya (untuk Billing & Mitra jangan ditambahkan)
-            // Namun, jika sistem membutuhkan billing untuk fungsionalitas, kita bisa menambahkan pengecekan di sini nanti.
-            // Untuk saat ini, kita ikuti instruksi "jangan ditambahkan" untuk billing/mitra.
-
-            // 3. Update Status Pendaftar
-            $pendaftar->status = $validated['status'];
-            $pendaftar->catatan_revisi = $validated['catatan'];
-            $pendaftar->save();
-
-            DB::commit();
-
-            return response()->json([
-                'success' => true,
-                'message' => "Keputusan ({$validated['status']}) berhasil disimpan.",
-                'data' => $pendaftar
-            ]);
-
-        } catch (\Exception $e) {
-            DB::rollBack();
-            return response()->json([
-                'success' => false,
-                'message' => 'Gagal memproses validasi: ' . $e->getMessage()
-            ], 500);
-        }
     }
 
-    /**
-     * Mengambil data detail pendaftar untuk kebutuhan UI modal review
-     */
-    public function show(Request $request, $id_pendaftar)
+    public function show($id)
     {
-        $user = $request->user();
-        $pendaftar = Pendaftar::where('id', $id_pendaftar)
-            ->whereHas('prodi', function ($query) use ($user) {
-                $query->where('id_kaprodi', $user->id);
-            })
-            ->with(['prodi', 'transkripAsal', 'hasilKonversi.mkTujuan'])
-            ->firstOrFail();
-
-        // Ambil kurikulum prodi pendaftar untuk pilihan dropdown manual matching
+        $pendaftar = Pendaftar::with(['prodi', 'transkripAsal', 'hasilKonversi'])->findOrFail($id);
+        
+        // Ambil kurikulum prodi tujuan
         $kurikulum = KurikulumMk::where('id_prodi', $pendaftar->id_prodi)
             ->orderBy('semester')
             ->orderBy('nama_mk')
             ->get();
 
+        $data = $pendaftar->toArray();
+        $data['transkrip_asal'] = $pendaftar->transkripAsal;
+        $data['kurikulum_target'] = $kurikulum;
+        $data['hasil_konversi'] = $pendaftar->hasilKonversi;
+
         return response()->json([
-            'pendaftar' => $pendaftar,
-            'kurikulum_prodi' => $kurikulum
+            'success' => true,
+            'data' => $data
         ]);
     }
-}
+
+    public function process(Request $request, $id)
+    {
+        $pendaftar = Pendaftar::findOrFail($id);
+        
+        DB::transaction(function () use ($pendaftar, $request) {
+            // Update status
+            $pendaftar->update([
+                'status' => 'Approved',
+                'hash_ba_digital' => $request->hash_ba_digital
+            ]);
+
+            // Save results
+            HasilKonversi::where('id_pendaftar', $pendaftar->id)->delete();
+            
+            $total_sks = 0;
+            foreach ($request->mapping as $item) {
+                $mk_tujuan = KurikulumMk::find($item['id_mk_tujuan']);
+                $sks = $mk_tujuan ? $mk_tujuan->sks : 0;
+                
+                HasilKonversi::create([
+                    'id_pendaftar' => $pendaftar->id,
+                    'id_mk_tujuan' => $item['id_mk_tujuan'],
+                    'id_transkrip_asal' => $item['id_transkrip_asal'],
+                    'nilai_akhir_huruf' => $item['nilai_akhir_huruf'],
+                    'sks_diakui' => $sks,
+                    'metode_pemetaan' => 'Manual Kaprodi',
+                ]);
+                $total_sks += $sks;
+            }
+            
+            $pendaftar->update(['total_sks_diakui' => $total_sks]);\n\n            // Kirim Notifikasi Approved\n            \\App\\Services\\NotificationService::send(\n                'pendaftar_approved',\n                $pendaftar->email,\n                $pendaftar->no_whatsapp,\n                [\n                    'nama' => $pendaftar->nama_lengkap,\n                    'id' => $pendaftar->id,\n                    'sks' => $total_sks,\n                    'status' => 'APPROVED',\n                    'kampus' => $pendaftar->prodi->kampus->nama_kampus ?? 'Kampus'\n                ]\n            );\n        });\n
+        return response()->json([
+            'success' => true,
+            'message' => 'Validasi berhasil disimpan.'
+        ]);
+    }
+
+    public function printData($id)\n    {\n        $pendaftar = Pendaftar::with(['prodi.kampus'])->findOrFail($id);\n        $hasil = HasilKonversi::where('id_pendaftar', $id)\n            ->join('kurikulum_mk', 'hasil_konversi.id_mk_tujuan', '=', 'kurikulum_mk.id')\n            ->join('transkrip_asal', 'hasil_konversi.id_transkrip_asal', '=', 'transkrip_asal.id')\n            ->select(\n                'hasil_konversi.*',\n                'kurikulum_mk.nama_mk as nama_mk_tujuan',\n                'kurikulum_mk.kode_mk as kode_mk_tujuan',\n                'kurikulum_mk.sks as sks_tujuan',\n                'transkrip_asal.nama_mk_asal'\n            )\n            ->get();\n\n        return response()->json([\n            'success' => true,\n            'data' => [\n                'pendaftar' => $pendaftar,\n                'kampus' => $pendaftar->prodi->kampus,\n                'prodi' => $pendaftar->prodi,\n                'hasil' => $hasil\n            ]\n        ]);\n    }\n\n    public function downloadPdf($id)\n    {\n        $pendaftar = Pendaftar::with(['prodi.kampus'])->findOrFail($id);\n        $hasil = HasilKonversi::where('id_pendaftar', $id)\n            ->join('kurikulum_mk', 'hasil_konversi.id_mk_tujuan', '=', 'kurikulum_mk.id')\n            ->join('transkrip_asal', 'hasil_konversi.id_transkrip_asal', '=', 'transkrip_asal.id')\n            ->select(\n                'hasil_konversi.*',\n                'kurikulum_mk.nama_mk as nama_mk_tujuan',\n                'kurikulum_mk.kode_mk as kode_mk_tujuan',\n                'kurikulum_mk.sks as sks_tujuan',\n                'transkrip_asal.nama_mk_asal'\n            )\n            ->get();\n\n        $dompdf = new \\Dompdf\\Dompdf(['isRemoteEnabled' => true]);\n        $html = view('pdf.berita-acara', [\n            'pendaftar' => $pendaftar,\n            'kampus' => $pendaftar->prodi->kampus,\n            'prodi' => $pendaftar->prodi,\n            'hasil' => $hasil\n        ])->render();\n\n        $dompdf->loadHtml($html);\n        $dompdf->setPaper('A4', 'portrait');\n        $dompdf->render();\n\n        return response($dompdf->output(), 200, [\n            'Content-Type' => 'application/pdf',\n            'Content-Disposition' => 'inline; filename=\"Berita_Acara_' . $pendaftar->id . '.pdf\"'\n        ]);\n    }\n}
