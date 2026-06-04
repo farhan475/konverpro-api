@@ -20,18 +20,12 @@ class Kampus extends Model
         'paket_layanan',
         'is_official_partner',
         'ai_config',
-        'tarif_internal_custom',
-        'tarif_lead_custom',
-        'saldo_aktif',
         'status_akun',
     ];
 
     protected $casts = [
         'is_official_partner' => 'boolean',
         'ai_config' => 'array',
-        'tarif_internal_custom' => 'decimal:2',
-        'tarif_lead_custom' => 'decimal:2',
-        'saldo_aktif' => 'decimal:2',
     ];
 
     public function users(): HasMany
@@ -47,10 +41,5 @@ class Kampus extends Model
     public function pendaftar(): HasMany
     {
         return $this->hasMany(Pendaftar::class, 'id_kampus');
-    }
-
-    public function transaksiSaldo(): HasMany
-    {
-        return $this->hasMany(TransaksiSaldo::class, 'id_kampus');
     }
 }

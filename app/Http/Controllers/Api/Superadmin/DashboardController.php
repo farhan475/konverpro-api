@@ -7,7 +7,6 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use App\Models\Kampus;
 use App\Models\Pendaftar;
-use App\Models\TransaksiSaldo;
 use App\Models\AuditLog;
 use App\Models\Prodi;
 
@@ -18,9 +17,7 @@ class DashboardController extends Controller
         $stats = [
             'total_kampus' => Kampus::count(),
             'total_mahasiswa_approved' => Pendaftar::where('status', 'Approved')->count(),
-            'pending_topup' => TransaksiSaldo::where('jenis_transaksi', 'topup')->where('status', 'pending')->count(),
             'total_pendaftar_global' => Pendaftar::count(),
-            'total_revenue' => (float) TransaksiSaldo::where('status', 'success')->where('jenis_transaksi', 'topup')->sum('nominal'),
             'total_prodi' => Prodi::count(),
         ];
 
@@ -34,5 +31,30 @@ class DashboardController extends Controller
             ->limit(5)
             ->get();
 
-        $top_mitra = Kampus::withCount('pendaftar')\n            ->orderBy('pendaftar_count', 'desc')\n            ->limit(5)\n            ->get();\n\n        $revenue_chart = TransaksiSaldo::where('status', 'success')\n            ->where('jenis_transaksi', 'topup')\n            ->select(\n                DB::raw('DATE_FORMAT(created_at, \"%Y-%m\") as month'),\n                DB::raw('SUM(nominal) as total')\n            )\n            ->groupBy('month')\n            ->orderBy('month', 'asc')\n            ->get();\n\n        $registration_chart = Pendaftar::select(\n                DB::raw('DATE_FORMAT(created_at, \"%Y-%m\") as month'),\n                DB::raw('COUNT(*) as total')\n            )\n            ->groupBy('month')\n            ->orderBy('month', 'asc')\n            ->get();\n\n        return response()->json([\n            'success' => true,\n            'data' => [\n                'stats' => $stats,\n                'recent_activities' => $recent_activities,\n                'kampus_terbaru' => $kampus_terbaru,\n                'top_mitra' => $top_mitra,\n                'charts' => [\n                    'revenue' => $revenue_chart,\n                    'registration' => $registration_chart\n                ]\n            ]\n        ], 200);\n    }
+        $top_mitra = Kampus::withCount('pendaftar')
+            ->orderBy('pendaftar_count', 'desc')
+            ->limit(5)
+            ->get();
+
+        $registration_chart = Pendaftar::select(
+                DB::raw('DATE_FORMAT(created_at, "%Y-%m") as month'),
+                DB::raw('COUNT(*) as total')
+            )
+            ->groupBy('month')
+            ->orderBy('month', 'asc')
+            ->get();
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'stats' => $stats,
+                'recent_activities' => $recent_activities,
+                'kampus_terbaru' => $kampus_terbaru,
+                'top_mitra' => $top_mitra,
+                'charts' => [
+                    'registration' => $registration_chart
+                ]
+            ]
+        ], 200);
+    }
 }

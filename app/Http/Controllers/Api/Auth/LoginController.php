@@ -19,7 +19,7 @@ class LoginController extends Controller
         ]);
     }
 
-    public function process(Request $request)
+    public function login(Request $request)
     {
         $credentials = $request->validate([
             'email' => 'required|email',
@@ -29,21 +29,17 @@ class LoginController extends Controller
         $user = User::where('email', $credentials['email'])->first();
 
         if ($user && Hash::check($credentials['password'], $user->password_hash)) {
-            Auth::login($user);
-            $request->session()->regenerate();
-
+            $token = $user->createToken('auth_token')->plainTextToken;
             $user->update(['last_login' => now()]);
 
             return response()->json([
                 'user' => $user,
-                'next_route' => $this->routeForRole($user->role),
-                'csrf_token' => csrf_token()
+                'token' => $token,
             ], 200);
         }
 
         return response()->json([
             'message' => 'Email atau kata sandi salah.',
-            'csrf_token' => csrf_token()
         ], 401);
     }
 
@@ -64,16 +60,9 @@ class LoginController extends Controller
 
     public function logout(Request $request)
     {
-        Auth::logout();
-        $request->session()->invalidate();
-        $request->session()->regenerateToken();
-
-        return response()->json([
-            'message' => 'Logout berhasil.',
-            'csrf_token' => csrf_token()
-        ], 200);
+        $request->user()->currentAccessToken()->delete();
+        return response()->json(['message' => 'Logout berhasil.'], 200);
     }
-
     private function routeForRole($role)
     {
         $routes = [

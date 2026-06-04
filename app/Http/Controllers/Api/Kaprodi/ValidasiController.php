@@ -33,7 +33,6 @@ class ValidasiController extends Controller
     {
         $pendaftar = Pendaftar::with(['prodi', 'transkripAsal', 'hasilKonversi'])->findOrFail($id);
         
-        // Ambil kurikulum prodi tujuan
         $kurikulum = KurikulumMk::where('id_prodi', $pendaftar->id_prodi)
             ->orderBy('semester')
             ->orderBy('nama_mk')
@@ -55,13 +54,11 @@ class ValidasiController extends Controller
         $pendaftar = Pendaftar::findOrFail($id);
         
         DB::transaction(function () use ($pendaftar, $request) {
-            // Update status
             $pendaftar->update([
                 'status' => 'Approved',
                 'hash_ba_digital' => $request->hash_ba_digital
             ]);
 
-            // Save results
             HasilKonversi::where('id_pendaftar', $pendaftar->id)->delete();
             
             $total_sks = 0;
@@ -80,11 +77,114 @@ class ValidasiController extends Controller
                 $total_sks += $sks;
             }
             
-            $pendaftar->update(['total_sks_diakui' => $total_sks]);\n\n            // Kirim Notifikasi Approved\n            \\App\\Services\\NotificationService::send(\n                'pendaftar_approved',\n                $pendaftar->email,\n                $pendaftar->no_whatsapp,\n                [\n                    'nama' => $pendaftar->nama_lengkap,\n                    'id' => $pendaftar->id,\n                    'sks' => $total_sks,\n                    'status' => 'APPROVED',\n                    'kampus' => $pendaftar->prodi->kampus->nama_kampus ?? 'Kampus'\n                ]\n            );\n        });\n
+            $pendaftar->update(['total_sks_diakui' => $total_sks]);
+
+            // Kirim Notifikasi Approved
+            \App\Services\NotificationService::send(
+                'pendaftar_approved',
+                $pendaftar->email,
+                $pendaftar->no_whatsapp,
+                [
+                    'nama' => $pendaftar->nama_lengkap,
+                    'id' => $pendaftar->id,
+                    'sks' => $total_sks,
+                    'status' => 'APPROVED',
+                    'kampus' => $pendaftar->prodi->kampus->nama_kampus ?? 'Kampus'
+                ]
+            );
+        });
+
         return response()->json([
             'success' => true,
             'message' => 'Validasi berhasil disimpan.'
         ]);
     }
 
-    public function printData($id)\n    {\n        $pendaftar = Pendaftar::with(['prodi.kampus'])->findOrFail($id);\n        $hasil = HasilKonversi::where('id_pendaftar', $id)\n            ->join('kurikulum_mk', 'hasil_konversi.id_mk_tujuan', '=', 'kurikulum_mk.id')\n            ->join('transkrip_asal', 'hasil_konversi.id_transkrip_asal', '=', 'transkrip_asal.id')\n            ->select(\n                'hasil_konversi.*',\n                'kurikulum_mk.nama_mk as nama_mk_tujuan',\n                'kurikulum_mk.kode_mk as kode_mk_tujuan',\n                'kurikulum_mk.sks as sks_tujuan',\n                'transkrip_asal.nama_mk_asal'\n            )\n            ->get();\n\n        return response()->json([\n            'success' => true,\n            'data' => [\n                'pendaftar' => $pendaftar,\n                'kampus' => $pendaftar->prodi->kampus,\n                'prodi' => $pendaftar->prodi,\n                'hasil' => $hasil\n            ]\n        ]);\n    }\n\n    public function downloadPdf($id)\n    {\n        $pendaftar = Pendaftar::with(['prodi.kampus'])->findOrFail($id);\n        $hasil = HasilKonversi::where('id_pendaftar', $id)\n            ->join('kurikulum_mk', 'hasil_konversi.id_mk_tujuan', '=', 'kurikulum_mk.id')\n            ->join('transkrip_asal', 'hasil_konversi.id_transkrip_asal', '=', 'transkrip_asal.id')\n            ->select(\n                'hasil_konversi.*',\n                'kurikulum_mk.nama_mk as nama_mk_tujuan',\n                'kurikulum_mk.kode_mk as kode_mk_tujuan',\n                'kurikulum_mk.sks as sks_tujuan',\n                'transkrip_asal.nama_mk_asal'\n            )\n            ->get();\n\n        $dompdf = new \\Dompdf\\Dompdf(['isRemoteEnabled' => true]);\n        $html = view('pdf.berita-acara', [\n            'pendaftar' => $pendaftar,\n            'kampus' => $pendaftar->prodi->kampus,\n            'prodi' => $pendaftar->prodi,\n            'hasil' => $hasil\n        ])->render();\n\n        $dompdf->loadHtml($html);\n        $dompdf->setPaper('A4', 'portrait');\n        $dompdf->render();\n\n        return response($dompdf->output(), 200, [\n            'Content-Type' => 'application/pdf',\n            'Content-Disposition' => 'inline; filename=\"Berita_Acara_' . $pendaftar->id . '.pdf\"'\n        ]);\n    }\n}
+    /**
+     * Bulk Process untuk menyetujui banyak mahasiswa sekaligus (Asumsi AI sudah memetakan)
+     */
+    public function bulkProcess(Request $request)
+    {
+        $request->validate([
+            'ids' => 'required|array',
+            'ids.*' => 'exists:pendaftar,id',
+            'hash_ba_digital' => 'required|string'
+        ]);
+
+        $count = 0;
+        foreach ($request->ids as $id) {
+            $pendaftar = Pendaftar::where('id', $id)->where('status', 'Pending Kaprodi')->first();
+            if ($pendaftar) {
+                $pendaftar->update([
+                    'status' => 'Approved',
+                    'hash_ba_digital' => $request->hash_ba_digital
+                ]);
+                $count++;
+            }
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => "Berhasil menyetujui {$count} pendaftar secara massal.",
+        ]);
+    }
+
+    public function printData($id)
+    {
+        $pendaftar = Pendaftar::with(['prodi.kampus'])->findOrFail($id);
+        $hasil = HasilKonversi::where('id_pendaftar', $id)
+            ->join('kurikulum_mk', 'hasil_konversi.id_mk_tujuan', '=', 'kurikulum_mk.id')
+            ->join('transkrip_asal', 'hasil_konversi.id_transkrip_asal', '=', 'transkrip_asal.id')
+            ->select(
+                'hasil_konversi.*',
+                'kurikulum_mk.nama_mk as nama_mk_tujuan',
+                'kurikulum_mk.kode_mk as kode_mk_tujuan',
+                'kurikulum_mk.sks as sks_tujuan',
+                'transkrip_asal.nama_mk_asal'
+            )
+            ->get();
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'pendaftar' => $pendaftar,
+                'kampus' => $pendaftar->prodi->kampus,
+                'prodi' => $pendaftar->prodi,
+                'hasil' => $hasil
+            ]
+        ]);
+    }
+
+    public function downloadPdf($id)
+    {
+        $pendaftar = Pendaftar::with(['prodi.kampus'])->findOrFail($id);
+        $hasil = HasilKonversi::where('id_pendaftar', $id)
+            ->join('kurikulum_mk', 'hasil_konversi.id_mk_tujuan', '=', 'kurikulum_mk.id')
+            ->join('transkrip_asal', 'hasil_konversi.id_transkrip_asal', '=', 'transkrip_asal.id')
+            ->select(
+                'hasil_konversi.*',
+                'kurikulum_mk.nama_mk as nama_mk_tujuan',
+                'kurikulum_mk.kode_mk as kode_mk_tujuan',
+                'kurikulum_mk.sks as sks_tujuan',
+                'transkrip_asal.nama_mk_asal'
+            )
+            ->get();
+
+        $dompdf = new \Dompdf\Dompdf(['isRemoteEnabled' => true]);
+        $html = view('pdf.berita-acara', [
+            'pendaftar' => $pendaftar,
+            'kampus' => $pendaftar->prodi->kampus,
+            'prodi' => $pendaftar->prodi,
+            'hasil' => $hasil
+        ])->render();
+
+        $dompdf->loadHtml($html);
+        $dompdf->setPaper('A4', 'portrait');
+        $dompdf->render();
+
+        return response($dompdf->output(), 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'inline; filename="Berita_Acara_' . $pendaftar->id . '.pdf"'
+        ]);
+    }
+}

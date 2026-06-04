@@ -19,7 +19,6 @@ use App\Http\Controllers\Api\AdminPt\ProdiController as AdminPtProdi;
 use App\Http\Controllers\Api\AdminPt\ConfigController as AdminPtConfig;
 use App\Http\Controllers\Api\Superadmin\DashboardController as SuperadminDashboard;
 use App\Http\Controllers\Api\Superadmin\MitraController;
-use App\Http\Controllers\Api\Superadmin\TransaksiController;
 use App\Http\Controllers\Api\Superadmin\NotifikasiController;
 use App\Http\Controllers\Api\Superadmin\AuditController;
 use App\Http\Controllers\Api\Superadmin\ConfigController as SuperadminConfig;
@@ -46,6 +45,7 @@ Route::middleware(['auth:sanctum'])->prefix('kaprodi')->group(function () {
     Route::get('/validasi/{id}/print-data', [ValidasiController::class, 'printData']);
     Route::get('/validasi/{id}/download-pdf', [ValidasiController::class, 'downloadPdf']);
     Route::post('/validasi/{id}/process', [ValidasiController::class, 'process']);
+    Route::post('/validasi/bulk-process', [ValidasiController::class, 'bulkProcess']);
     Route::get('/mahasiswa', [MahasiswaController::class, 'index']);
     Route::get('/pemetaan', [PemetaanController::class, 'index']);
     Route::get('/laporan', [KaprodiLaporan::class, 'index']);
@@ -66,9 +66,6 @@ Route::middleware(['auth:sanctum'])->prefix('admin-pt')->group(function () {
 Route::middleware(['auth:sanctum'])->prefix('superadmin')->group(function () {
     Route::get('/dashboard', [SuperadminDashboard::class, 'index']);
     Route::apiResource('mitra', MitraController::class);
-    Route::get('/transaksi', [TransaksiController::class, 'index']);
-    Route::post('/transaksi/{id}/approve', [TransaksiController::class, 'approve']);
-    Route::post('/transaksi/{id}/reject', [TransaksiController::class, 'reject']);
     Route::get('/notifikasi', [NotifikasiController::class, 'index']);
     Route::put('/notifikasi/{id}', [NotifikasiController::class, 'update']);
     Route::get('/audit', [AuditController::class, 'index']);
