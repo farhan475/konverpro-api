@@ -16,7 +16,9 @@ class LoginController extends Controller
             return redirect($this->webRouteForRole(Auth::user()->role));
         }
 
-        return view('auth.login');
+        /** @var view-string $viewName */
+        $viewName = 'auth.login';
+        return view($viewName);
     }
 
     public function process(Request $request)

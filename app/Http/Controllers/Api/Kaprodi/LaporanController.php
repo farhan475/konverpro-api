@@ -28,9 +28,9 @@ class LaporanController extends Controller
             'approved' => Pendaftar::whereHas('prodi', function($q) use ($id_kaprodi) {
                 $q->where('id_kaprodi', $id_kaprodi);
             })->where('status', 'Approved')->count(),
-            'avg_sks_diakui' => (float) Pendaftar::whereHas('prodi', function($q) use ($id_kaprodi) {
+            'avg_sks_diakui' => (float) (Pendaftar::whereHas('prodi', function($q) use ($id_kaprodi) {
                 $q->where('id_kaprodi', $id_kaprodi);
-            })->avg('total_sks_diakui') ?? 0.0,
+            })->avg('total_sks_diakui') ?? 0),
         ];
 
         // Status Breakdown

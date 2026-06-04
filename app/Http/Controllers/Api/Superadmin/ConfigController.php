@@ -10,7 +10,7 @@ class ConfigController extends Controller
 {
     public function index()
     {
-        $settings = DB::table('pengaturan_global')->get()->pluck('setting_value', 'setting_key');
+        $settings = DB::table('pengaturan_global')->pluck('setting_value', 'setting_key');
 
         return response()->json([
             'success' => true,

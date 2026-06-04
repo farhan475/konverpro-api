@@ -7,6 +7,10 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
+/**
+ * @property float|null $avg_sks_diakui
+ * @property int|null $total_sks_diakui
+ */
 class Prodi extends Model
 {
     protected $table = 'prodi';

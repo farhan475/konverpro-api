@@ -32,7 +32,7 @@ class DashboardController extends Controller
             'approved' => Pendaftar::where('id_kampus', $id_kampus)->where('status', 'Approved')->count(),
             'revisi' => Pendaftar::where('id_kampus', $id_kampus)->where('status', 'Revisi')->count(),
             'rejected' => Pendaftar::where('id_kampus', $id_kampus)->where('status', 'Rejected')->count(),
-            'avg_sks_diakui' => (float) Pendaftar::where('id_kampus', $id_kampus)->avg('total_sks_diakui') ?? 0.0,
+            'avg_sks_diakui' => (float) (Pendaftar::where('id_kampus', $id_kampus)->avg('total_sks_diakui') ?? 0),
             'total_mk' => KurikulumMk::whereHas('prodi', function ($query) use ($id_kampus) {
                 $query->where('id_kampus', $id_kampus);
             })->count(),
@@ -51,7 +51,7 @@ class DashboardController extends Controller
         }])->withCount(['pendaftar as butuh_tindak_lanjut' => function ($query) {
             $query->whereIn('status', ['Revisi', 'Rejected']);
         }])->get()->map(function ($prodi) {
-            $prodi->avg_sks_diakui = (float) Pendaftar::where('id_prodi', $prodi->id)->avg('total_sks_diakui') ?? 0.0;
+            $prodi->avg_sks_diakui = (float) (Pendaftar::where('id_prodi', $prodi->id)->avg('total_sks_diakui') ?? 0);
             return $prodi;
         });
         $registration_chart = Pendaftar::where('id_kampus', $id_kampus)->select(DB::raw('DATE_FORMAT(created_at, \"%Y-%m\") as month'), DB::raw('COUNT(*) as total'))->groupBy('month')->orderBy('month', 'asc')->get();

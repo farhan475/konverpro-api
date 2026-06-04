@@ -28,7 +28,7 @@ class DashboardController extends Controller
             'rejected' => Pendaftar::whereIn('id_prodi', $prodi_ids)->where('status', 'Rejected')->count(),
             'total_prodi' => $my_prodi->count(),
             'total_kurikulum' => KurikulumMk::whereIn('id_prodi', $prodi_ids)->count(),
-            'avg_sks_diakui' => (float) Pendaftar::whereIn('id_prodi', $prodi_ids)->avg('total_sks_diakui') ?? 0.0,
+            'avg_sks_diakui' => (float) (Pendaftar::whereIn('id_prodi', $prodi_ids)->avg('total_sks_diakui') ?? 0),
         ];
 
         $recent_pendaftar = Pendaftar::whereIn('id_prodi', $prodi_ids)

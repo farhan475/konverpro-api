@@ -111,12 +111,14 @@ class ScannerController extends Controller
             ->first();
 
         if ($match) {
+            /** @var \App\Models\KurikulumMk $mataKuliah */
+            $mataKuliah = $match->mataKuliah;
             return response()->json([
                 'success' => true,
                 'match' => [
                     'id_mk_tujuan' => $match->id_kurikulum_mk,
-                    'nama_mk' => $match->mataKuliah->nama_mk,
-                    'sks' => $match->mataKuliah->sks,
+                    'nama_mk' => $mataKuliah->nama_mk,
+                    'sks' => $mataKuliah->sks,
                     'score' => $match->weight,
                     'method' => 'AI Reference'
                 ]

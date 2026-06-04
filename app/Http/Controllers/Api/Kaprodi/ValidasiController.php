@@ -144,12 +144,15 @@ class ValidasiController extends Controller
             )
             ->get();
 
+        /** @var \App\Models\Pendaftar $pendaftar */
+        /** @var \App\Models\Prodi $prodi */
+        $prodi = $pendaftar->prodi;
         return response()->json([
             'success' => true,
             'data' => [
                 'pendaftar' => $pendaftar,
-                'kampus' => $pendaftar->prodi->kampus,
-                'prodi' => $pendaftar->prodi,
+                'kampus' => $prodi->kampus,
+                'prodi' => $prodi,
                 'hasil' => $hasil
             ]
         ]);
@@ -171,10 +174,15 @@ class ValidasiController extends Controller
             ->get();
 
         $dompdf = new \Dompdf\Dompdf(['isRemoteEnabled' => true]);
-        $html = view('pdf.berita-acara', [
+        /** @var \App\Models\Pendaftar $pendaftar */
+        /** @var \App\Models\Prodi $prodi */
+        $prodi = $pendaftar->prodi;
+        /** @var view-string $viewName */
+        $viewName = 'pdf.berita-acara';
+        $html = view($viewName, [
             'pendaftar' => $pendaftar,
-            'kampus' => $pendaftar->prodi->kampus,
-            'prodi' => $pendaftar->prodi,
+            'kampus' => $prodi->kampus,
+            'prodi' => $prodi,
             'hasil' => $hasil
         ])->render();
 

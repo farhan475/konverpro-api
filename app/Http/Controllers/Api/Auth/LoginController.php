@@ -63,16 +63,4 @@ class LoginController extends Controller
         $request->user()->currentAccessToken()->delete();
         return response()->json(['message' => 'Logout berhasil.'], 200);
     }
-    private function routeForRole($role)
-    {
-        $routes = [
-            'superadmin' => '/api/superadmin/dashboard',
-            'admin_pt'   => '/api/admin-pt/dashboard',
-            'staff'      => '/api/staff/dashboard',
-            'akademik'   => '/api/akademik/dashboard',
-            'kaprodi'    => '/api/kaprodi/dashboard',
-        ];
-
-        return $routes[$role] ?? null;
-    }
 }
