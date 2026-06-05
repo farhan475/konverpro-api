@@ -23,11 +23,13 @@ class MkReferensiAi extends Model
         'is_active' => 'boolean',
     ];
 
+    /** @return BelongsTo<KurikulumMk, $this> */
     public function mataKuliah(): BelongsTo
     {
         return $this->belongsTo(KurikulumMk::class, 'id_kurikulum_mk');
     }
 
+    /** @return BelongsTo<User, $this> */
     public function creator(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');

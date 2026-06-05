@@ -12,9 +12,10 @@ use App\Models\KurikulumMk;
 
 class DashboardController extends Controller
 {
-    public function index(Request $request)
+    public function index(Request $request): \Illuminate\Http\JsonResponse
     {
         $user = $request->user();
+        assert($user !== null);
         $id_user = $user->id;
 
         $my_prodi = Prodi::where('id_kaprodi', $id_user)->get();

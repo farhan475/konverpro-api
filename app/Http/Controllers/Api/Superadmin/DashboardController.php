@@ -12,7 +12,7 @@ use App\Models\Prodi;
 
 class DashboardController extends Controller
 {
-    public function index(Request $request)
+    public function index(Request $request): \Illuminate\Http\JsonResponse
     {
         $stats = [
             'total_kampus' => Kampus::count(),

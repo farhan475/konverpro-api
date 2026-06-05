@@ -8,9 +8,11 @@ use App\Models\Kampus;
 
 class ConfigController extends Controller
 {
-    public function index(Request $request)
+    public function index(Request $request): \Illuminate\Http\JsonResponse
     {
-        $id_kampus = $request->user()->id_kampus;
+        $user = $request->user();
+        assert($user !== null);
+        $id_kampus = $user->id_kampus;
         $kampus = Kampus::findOrFail($id_kampus);
 
         return response()->json([
@@ -34,9 +36,11 @@ class ConfigController extends Controller
         ]);
     }
 
-    public function update(Request $request)
+    public function update(Request $request): \Illuminate\Http\JsonResponse
     {
-        $id_kampus = $request->user()->id_kampus;
+        $user = $request->user();
+        assert($user !== null);
+        $id_kampus = $user->id_kampus;
         $kampus = Kampus::findOrFail($id_kampus);
 
         $validated = $request->validate([

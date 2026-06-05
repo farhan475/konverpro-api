@@ -8,7 +8,7 @@ use App\Models\AuditLog;
 
 class AuditController extends Controller
 {
-    public function index(Request $request)
+    public function index(Request $request): \Illuminate\Http\JsonResponse
     {
         $logs = AuditLog::with(['user', 'kampus'])
             ->orderBy('created_at', 'desc')

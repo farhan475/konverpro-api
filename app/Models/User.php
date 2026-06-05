@@ -40,11 +40,13 @@ class User extends Authenticatable
         return $this->password_hash;
     }
 
+    /** @return BelongsTo<Kampus, $this> */
     public function kampus(): BelongsTo
     {
         return $this->belongsTo(Kampus::class, 'id_kampus');
     }
 
+    /** @return HasMany<Prodi, $this> */
     public function prodiDipimpin(): HasMany
     {
         return $this->hasMany(Prodi::class, 'id_kaprodi');

@@ -9,9 +9,10 @@ use App\Models\PengaturanProdi;
 
 class PengaturanController extends Controller
 {
-    public function index(Request $request)
+    public function index(Request $request): \Illuminate\Http\JsonResponse
     {
         $user = $request->user();
+        assert($user !== null);
         
         $my_prodi = Prodi::where('id_kaprodi', $user->id)
             ->with('pengaturan')
@@ -30,9 +31,10 @@ class PengaturanController extends Controller
         ]);
     }
 
-    public function updateProdi(Request $request, $id_prodi)
+    public function updateProdi(Request $request, int $id_prodi): \Illuminate\Http\JsonResponse
     {
         $user = $request->user();
+        assert($user !== null);
         
         $prodi = Prodi::where('id', $id_prodi)
             ->where('id_kaprodi', $user->id)

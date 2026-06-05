@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\DB;
 
 class MitraController extends Controller
 {
-    public function index()
+    public function index(): \Illuminate\Http\JsonResponse
     {
         $mitra = Kampus::withCount(['pendaftar', 'prodi', 'users'])
             ->orderBy('created_at', 'desc')
@@ -23,7 +23,7 @@ class MitraController extends Controller
         ]);
     }
 
-    public function store(Request $request)
+    public function store(Request $request): \Illuminate\Http\JsonResponse
     {
         $validated = $request->validate([
             'nama_kampus' => 'required|string|max:150',
@@ -64,7 +64,7 @@ class MitraController extends Controller
         });
     }
 
-    public function show($id)
+    public function show(int $id): \Illuminate\Http\JsonResponse
     {
         $mitra = Kampus::with(['users' => function($q) {
             $q->where('role', 'admin_pt');
@@ -76,7 +76,7 @@ class MitraController extends Controller
         ]);
     }
 
-    public function update(Request $request, $id)
+    public function update(Request $request, int $id): \Illuminate\Http\JsonResponse
     {
         $kampus = Kampus::findOrFail($id);
 
@@ -97,7 +97,7 @@ class MitraController extends Controller
         ]);
     }
 
-    public function destroy($id)
+    public function destroy(int $id): \Illuminate\Http\JsonResponse
     {
         $kampus = Kampus::findOrFail($id);
         $kampus->delete();

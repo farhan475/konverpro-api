@@ -9,9 +9,11 @@ use Illuminate\Support\Facades\Hash;
 
 class KaprodiController extends Controller
 {
-    public function index(Request $request)
+    public function index(Request $request): \Illuminate\Http\JsonResponse
     {
-        $id_kampus = $request->user()->id_kampus;
+        $user = $request->user();
+        assert($user !== null);
+        $id_kampus = $user->id_kampus;
         $kaprodi = User::where('id_kampus', $id_kampus)
             ->where('role', 'kaprodi')
             ->withCount('prodiDipimpin')
@@ -21,9 +23,11 @@ class KaprodiController extends Controller
         return response()->json($kaprodi);
     }
 
-    public function store(Request $request)
+    public function store(Request $request): \Illuminate\Http\JsonResponse
     {
-        $id_kampus = $request->user()->id_kampus;
+        $user = $request->user();
+        assert($user !== null);
+        $id_kampus = $user->id_kampus;
         $validated = $request->validate([
             'nama_lengkap' => 'required|string|max:100',
             'email' => 'required|email|max:100|unique:users,email',
@@ -45,9 +49,11 @@ class KaprodiController extends Controller
         return response()->json($kaprodi, 201);
     }
 
-    public function update(Request $request, $id)
+    public function update(Request $request, int $id): \Illuminate\Http\JsonResponse
     {
-        $id_kampus = $request->user()->id_kampus;
+        $user = $request->user();
+        assert($user !== null);
+        $id_kampus = $user->id_kampus;
         $kaprodi = User::where('id', $id)->where('id_kampus', $id_kampus)->where('role', 'kaprodi')->firstOrFail();
 
         $validated = $request->validate([
@@ -74,9 +80,11 @@ class KaprodiController extends Controller
         return response()->json($kaprodi);
     }
 
-    public function destroy(Request $request, $id)
+    public function destroy(Request $request, int $id): \Illuminate\Http\JsonResponse
     {
-        $id_kampus = $request->user()->id_kampus;
+        $user = $request->user();
+        assert($user !== null);
+        $id_kampus = $user->id_kampus;
         $kaprodi = User::where('id', $id)->where('id_kampus', $id_kampus)->where('role', 'kaprodi')->firstOrFail();
         
         if ($kaprodi->prodiDipimpin()->count() > 0) {

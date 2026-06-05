@@ -11,9 +11,10 @@ use App\Models\TranskripAsal;
 
 class ScannerController extends Controller
 {
-    public function index(Request $request)
+    public function index(Request $request): \Illuminate\Http\JsonResponse
     {
         $user = $request->user();
+        assert($user !== null);
         $id_kampus = $user->id_kampus;
 
         if (!$id_kampus) {
@@ -30,7 +31,7 @@ class ScannerController extends Controller
         ], 200);
     }
 
-    public function saveScan(Request $request)
+    public function saveScan(Request $request): \Illuminate\Http\JsonResponse
     {
         $request->validate([
             'id_prodi' => 'required|exists:prodi,id',
@@ -88,7 +89,7 @@ class ScannerController extends Controller
         }
     }
 
-    public function autoMatch(Request $request)
+    public function autoMatch(Request $request): \Illuminate\Http\JsonResponse
     {
         $request->validate([
             'id_prodi' => 'required|exists:prodi,id',

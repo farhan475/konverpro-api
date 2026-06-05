@@ -9,9 +9,11 @@ use Illuminate\Support\Facades\Hash;
 
 class UserController extends Controller
 {
-    public function index(Request $request)
+    public function index(Request $request): \Illuminate\Http\JsonResponse
     {
-        $id_kampus = $request->user()->id_kampus;
+        $user = $request->user();
+        assert($user !== null);
+        $id_kampus = $user->id_kampus;
         $users = User::where('id_kampus', $id_kampus)
             ->whereIn('role', ['staff', 'akademik', 'kaprodi'])
             ->withCount(['prodiDipimpin as total_prodi_dipegang'])
@@ -25,9 +27,11 @@ class UserController extends Controller
         ]);
     }
 
-    public function store(Request $request)
+    public function store(Request $request): \Illuminate\Http\JsonResponse
     {
-        $id_kampus = $request->user()->id_kampus;
+        $user = $request->user();
+        assert($user !== null);
+        $id_kampus = $user->id_kampus;
         $validated = $request->validate([
             'nama_lengkap' => 'required|string|max:100',
             'email' => 'required|email|max:100|unique:users,email',
@@ -54,9 +58,11 @@ class UserController extends Controller
         ], 201);
     }
 
-    public function update(Request $request, $id)
+    public function update(Request $request, int $id): \Illuminate\Http\JsonResponse
     {
-        $id_kampus = $request->user()->id_kampus;
+        $user = $request->user();
+        assert($user !== null);
+        $id_kampus = $user->id_kampus;
         $user = User::where('id', $id)
             ->where('id_kampus', $id_kampus)
             ->whereIn('role', ['staff', 'akademik', 'kaprodi'])
@@ -92,9 +98,11 @@ class UserController extends Controller
         ]);
     }
 
-    public function destroy(Request $request, $id)
+    public function destroy(Request $request, int $id): \Illuminate\Http\JsonResponse
     {
-        $id_kampus = $request->user()->id_kampus;
+        $user = $request->user();
+        assert($user !== null);
+        $id_kampus = $user->id_kampus;
         $user = User::where('id', $id)
             ->where('id_kampus', $id_kampus)
             ->whereIn('role', ['staff', 'akademik', 'kaprodi'])

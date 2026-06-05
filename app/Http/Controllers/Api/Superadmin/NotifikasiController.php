@@ -8,7 +8,7 @@ use Illuminate\Support\Facades\DB;
 
 class NotifikasiController extends Controller
 {
-    public function index()
+    public function index(): \Illuminate\Http\JsonResponse
     {
         $templates = DB::table('notifikasi_templates')->get();
 
@@ -18,7 +18,7 @@ class NotifikasiController extends Controller
         ]);
     }
 
-    public function update(Request $request, $id)
+    public function update(Request $request, int $id): \Illuminate\Http\JsonResponse
     {
         $validated = $request->validate([
             'subjek_email' => 'nullable|string|max:150',

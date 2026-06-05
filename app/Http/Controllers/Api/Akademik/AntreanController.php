@@ -8,9 +8,10 @@ use App\Models\Pendaftar;
 
 class AntreanController extends Controller
 {
-    public function index(Request $request)
+    public function index(Request $request): \Illuminate\Http\JsonResponse
     {
         $user = $request->user();
+        assert($user !== null);
         $id_kampus = $user->id_kampus;
 
         if (!$id_kampus) {
@@ -36,9 +37,11 @@ class AntreanController extends Controller
         ], 200);
     }
 
-    public function show(Request $request, $id)
+    public function show(Request $request, string $id): \Illuminate\Http\JsonResponse
     {
-        $id_kampus = $request->user()->id_kampus;
+        $user = $request->user();
+        assert($user !== null);
+        $id_kampus = $user->id_kampus;
         $pendaftar = Pendaftar::where('id', $id)
             ->where('id_kampus', $id_kampus)
             ->with(['prodi', 'transkripAsal'])

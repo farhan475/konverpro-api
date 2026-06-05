@@ -25,11 +25,13 @@ class TranskripAsal extends Model
         'nilai_angka_asal' => 'decimal:2',
     ];
 
+    /** @return BelongsTo<Pendaftar, $this> */
     public function pendaftar(): BelongsTo
     {
         return $this->belongsTo(Pendaftar::class, 'id_pendaftar');
     }
 
+    /** @return HasMany<HasilKonversi, $this> */
     public function hasilKonversi(): HasMany
     {
         return $this->hasMany(HasilKonversi::class, 'id_transkrip_asal');

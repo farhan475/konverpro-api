@@ -8,7 +8,7 @@ use Illuminate\Support\Facades\DB;
 
 class ConfigController extends Controller
 {
-    public function index()
+    public function index(): \Illuminate\Http\JsonResponse
     {
         $settings = DB::table('pengaturan_global')->pluck('setting_value', 'setting_key');
 
@@ -18,7 +18,7 @@ class ConfigController extends Controller
         ]);
     }
 
-    public function update(Request $request)
+    public function update(Request $request): \Illuminate\Http\JsonResponse
     {
         $settings = $request->all();
 

@@ -32,6 +32,7 @@ class PengaturanProdi extends Model
         'min_ipk' => 'decimal:2',
     ];
 
+    /** @return BelongsTo<Prodi, $this> */
     public function prodi(): BelongsTo
     {
         return $this->belongsTo(Prodi::class, 'id_prodi');

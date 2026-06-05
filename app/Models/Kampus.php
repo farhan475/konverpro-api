@@ -28,16 +28,19 @@ class Kampus extends Model
         'ai_config' => 'array',
     ];
 
+    /** @return HasMany<User, $this> */
     public function users(): HasMany
     {
         return $this->hasMany(User::class, 'id_kampus');
     }
 
+    /** @return HasMany<Prodi, $this> */
     public function prodi(): HasMany
     {
         return $this->hasMany(Prodi::class, 'id_kampus');
     }
 
+    /** @return HasMany<Pendaftar, $this> */
     public function pendaftar(): HasMany
     {
         return $this->hasMany(Pendaftar::class, 'id_kampus');

@@ -13,9 +13,10 @@ use App\Models\KurikulumMk;
 
 class DashboardController extends Controller
 {
-    public function index(Request $request)
+    public function index(Request $request): \Illuminate\Http\JsonResponse
     {
         $user = $request->user();
+        assert($user !== null);
         $id_kampus = $user->id_kampus;
 
         if (!$id_kampus) {
@@ -58,6 +59,6 @@ class DashboardController extends Controller
         $ai_summary = ['total_reference_keywords' => DB::table('mk_referensi_ai')->count(), 'total_described_courses' => KurikulumMk::whereHas('prodi', function ($q) use ($id_kampus) {
             $q->where('id_kampus', $id_kampus);
         })->whereNotNull('deskripsi_singkat')->count(), 'total_courses' => $stats['total_mk'],];
-        return response()->json(['kampus' => $kampus, 'stats' => $stats, 'status_breakdown' => $status_breakdown, 'prodi_performance' => $prodi_performance, 'registration_chart' => $registration_chart, 'ai_summary' => $ai_summary, 'nama_admin' => $user->nama_lengkap,], 200);
+        return response()->json(['kampus' => $kampus, 'stats' => $stats, 'status_breakdown' => $status_breakdown, 'prodi_performance' => $prodi_performance, 'registration_chart' => $registration_chart, 'ai_summary' => $ai_summary, 'nama_admin' => $user->nama_lengkap], 200);
     }
 }

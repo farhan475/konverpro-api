@@ -8,9 +8,10 @@ use App\Models\Pendaftar;
 
 class MahasiswaController extends Controller
 {
-    public function index(Request $request)
+    public function index(Request $request): \Illuminate\Http\JsonResponse
     {
         $user = $request->user();
+        assert($user !== null);
         $id_kaprodi = $user->id;
 
         $mahasiswa = Pendaftar::whereHas('prodi', function ($query) use ($id_kaprodi) {

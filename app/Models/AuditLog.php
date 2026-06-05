@@ -19,11 +19,13 @@ class AuditLog extends Model
         'ip_address',
     ];
 
+    /** @return BelongsTo<User, $this> */
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class, 'id_user');
     }
 
+    /** @return BelongsTo<Kampus, $this> */
     public function kampus(): BelongsTo
     {
         return $this->belongsTo(Kampus::class, 'id_kampus');

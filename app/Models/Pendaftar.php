@@ -39,21 +39,25 @@ class Pendaftar extends Model
         'total_sks_diakui' => 'integer',
     ];
 
+    /** @return BelongsTo<Kampus, $this> */
     public function kampus(): BelongsTo
     {
         return $this->belongsTo(Kampus::class, 'id_kampus');
     }
 
+    /** @return BelongsTo<Prodi, $this> */
     public function prodi(): BelongsTo
     {
         return $this->belongsTo(Prodi::class, 'id_prodi');
     }
 
+    /** @return HasMany<TranskripAsal, $this> */
     public function transkripAsal(): HasMany
     {
         return $this->hasMany(TranskripAsal::class, 'id_pendaftar');
     }
 
+    /** @return HasMany<HasilKonversi, $this> */
     public function hasilKonversi(): HasMany
     {
         return $this->hasMany(HasilKonversi::class, 'id_pendaftar');

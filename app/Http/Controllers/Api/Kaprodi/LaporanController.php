@@ -11,9 +11,10 @@ use App\Models\KurikulumMk;
 
 class LaporanController extends Controller
 {
-    public function index(Request $request)
+    public function index(Request $request): \Illuminate\Http\JsonResponse
     {
         $user = $request->user();
+        assert($user !== null);
         $id_kampus = $user->id_kampus;
         $id_kaprodi = $user->id;
 

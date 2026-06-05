@@ -10,10 +10,12 @@ use App\Models\User;
 
 class LoginController extends Controller
 {
-    public function index(Request $request)
+    public function index(Request $request): \Illuminate\Http\RedirectResponse|\Illuminate\View\View
     {
         if (Auth::check()) {
-            return redirect($this->webRouteForRole(Auth::user()->role));
+            $user = Auth::user();
+            assert($user !== null);
+            return redirect($this->webRouteForRole($user->role));
         }
 
         /** @var view-string $viewName */
@@ -21,7 +23,7 @@ class LoginController extends Controller
         return view($viewName);
     }
 
-    public function process(Request $request)
+    public function process(Request $request): \Illuminate\Http\RedirectResponse
     {
         $credentials = $request->validate([
             'email' => 'required|email',
@@ -44,7 +46,7 @@ class LoginController extends Controller
         ])->withInput($request->only('email'));
     }
 
-    public function logout(Request $request)
+    public function logout(Request $request): \Illuminate\Http\RedirectResponse
     {
         Auth::logout();
         $request->session()->invalidate();
@@ -53,7 +55,7 @@ class LoginController extends Controller
         return redirect()->route('login')->with('success', 'Logout berhasil.');
     }
 
-    private function webRouteForRole($role)
+    private function webRouteForRole(string $role): string
     {
         $routes = [
             'superadmin' => route('superadmin.dashboard'),

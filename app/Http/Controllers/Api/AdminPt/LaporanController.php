@@ -9,9 +9,11 @@ use App\Models\AuditLog;
 
 class LaporanController extends Controller
 {
-    public function index(Request $request)
+    public function index(Request $request): \Illuminate\Http\JsonResponse
     {
-        $id_kampus = $request->user()->id_kampus;
+        $user = $request->user();
+        assert($user !== null);
+        $id_kampus = $user->id_kampus;
 
         $stats = [
             'total' => Pendaftar::where('id_kampus', $id_kampus)->count(),
@@ -32,9 +34,11 @@ class LaporanController extends Controller
         ]);
     }
 
-    public function auditLog(Request $request)
+    public function auditLog(Request $request): \Illuminate\Http\JsonResponse
     {
-        $id_kampus = $request->user()->id_kampus;
+        $user = $request->user();
+        assert($user !== null);
+        $id_kampus = $user->id_kampus;
         $logs = AuditLog::where('id_kampus', $id_kampus)
             ->with('user')
             ->orderBy('created_at', 'desc')

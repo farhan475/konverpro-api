@@ -29,16 +29,19 @@ class KurikulumMk extends Model
         'is_locked' => 'boolean',
     ];
 
+    /** @return BelongsTo<Prodi, $this> */
     public function prodi(): BelongsTo
     {
         return $this->belongsTo(Prodi::class, 'id_prodi');
     }
 
+    /** @return HasMany<HasilKonversi, $this> */
     public function hasilKonversi(): HasMany
     {
         return $this->hasMany(HasilKonversi::class, 'id_mk_tujuan');
     }
 
+    /** @return HasMany<MkReferensiAi, $this> */
     public function referensiAi(): HasMany
     {
         return $this->hasMany(MkReferensiAi::class, 'id_kurikulum_mk');

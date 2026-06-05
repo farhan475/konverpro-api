@@ -9,9 +9,11 @@ use App\Models\User;
 
 class ProdiController extends Controller
 {
-    public function index(Request $request)
+    public function index(Request $request): \Illuminate\Http\JsonResponse
     {
-        $id_kampus = $request->user()->id_kampus;
+        $user = $request->user();
+        assert($user !== null);
+        $id_kampus = $user->id_kampus;
         
         $prodi = Prodi::where('id_kampus', $id_kampus)
             ->with(['kaprodi'])
@@ -32,9 +34,11 @@ class ProdiController extends Controller
         ]);
     }
 
-    public function store(Request $request)
+    public function store(Request $request): \Illuminate\Http\JsonResponse
     {
-        $id_kampus = $request->user()->id_kampus;
+        $user = $request->user();
+        assert($user !== null);
+        $id_kampus = $user->id_kampus;
         $validated = $request->validate([
             'id_kaprodi' => 'nullable|exists:users,id',
             'kode_prodi' => 'nullable|string|max:20',
@@ -53,9 +57,11 @@ class ProdiController extends Controller
         ], 201);
     }
 
-    public function update(Request $request, $id)
+    public function update(Request $request, int $id): \Illuminate\Http\JsonResponse
     {
-        $id_kampus = $request->user()->id_kampus;
+        $user = $request->user();
+        assert($user !== null);
+        $id_kampus = $user->id_kampus;
         $prodi = Prodi::where('id', $id)->where('id_kampus', $id_kampus)->firstOrFail();
 
         $validated = $request->validate([
@@ -76,9 +82,11 @@ class ProdiController extends Controller
         ]);
     }
 
-    public function destroy(Request $request, $id)
+    public function destroy(Request $request, int $id): \Illuminate\Http\JsonResponse
     {
-        $id_kampus = $request->user()->id_kampus;
+        $user = $request->user();
+        assert($user !== null);
+        $id_kampus = $user->id_kampus;
         $prodi = Prodi::where('id', $id)->where('id_kampus', $id_kampus)->firstOrFail();
         $prodi->delete();
 

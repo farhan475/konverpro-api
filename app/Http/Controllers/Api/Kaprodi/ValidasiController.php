@@ -12,9 +12,10 @@ use App\Models\Prodi;
 
 class ValidasiController extends Controller
 {
-    public function index(Request $request)
+    public function index(Request $request): \Illuminate\Http\JsonResponse
     {
         $user = $request->user();
+        assert($user !== null);
         $prodi_ids = Prodi::where('id_kaprodi', $user->id)->pluck('id');
 
         $pendaftar = Pendaftar::whereIn('id_prodi', $prodi_ids)
@@ -29,7 +30,7 @@ class ValidasiController extends Controller
         ]);
     }
 
-    public function show($id)
+    public function show(string $id): \Illuminate\Http\JsonResponse
     {
         $pendaftar = Pendaftar::with(['prodi', 'transkripAsal', 'hasilKonversi'])->findOrFail($id);
         
@@ -49,7 +50,7 @@ class ValidasiController extends Controller
         ]);
     }
 
-    public function process(Request $request, $id)
+    public function process(Request $request, string $id): \Illuminate\Http\JsonResponse
     {
         $pendaftar = Pendaftar::findOrFail($id);
         
@@ -103,7 +104,7 @@ class ValidasiController extends Controller
     /**
      * Bulk Process untuk menyetujui banyak mahasiswa sekaligus (Asumsi AI sudah memetakan)
      */
-    public function bulkProcess(Request $request)
+    public function bulkProcess(Request $request): \Illuminate\Http\JsonResponse
     {
         $request->validate([
             'ids' => 'required|array',
@@ -129,7 +130,7 @@ class ValidasiController extends Controller
         ]);
     }
 
-    public function printData($id)
+    public function printData(string $id): \Illuminate\Http\JsonResponse
     {
         $pendaftar = Pendaftar::with(['prodi.kampus'])->findOrFail($id);
         $hasil = HasilKonversi::where('id_pendaftar', $id)
@@ -158,7 +159,7 @@ class ValidasiController extends Controller
         ]);
     }
 
-    public function downloadPdf($id)
+    public function downloadPdf(string $id): \Illuminate\Http\Response
     {
         $pendaftar = Pendaftar::with(['prodi.kampus'])->findOrFail($id);
         $hasil = HasilKonversi::where('id_pendaftar', $id)
