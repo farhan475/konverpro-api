@@ -10,13 +10,14 @@ use App\Models\User;
 use App\Models\Prodi;
 use App\Models\Pendaftar;
 use App\Models\KurikulumMk;
+use Illuminate\Http\JsonResponse;
 
 class DashboardController extends Controller
 {
-    public function index(Request $request): \Illuminate\Http\JsonResponse
+    public function index(Request $request): JsonResponse
     {
+        /** @var User $user */
         $user = $request->user();
-        assert($user !== null);
         $id_kampus = $user->id_kampus;
 
         if (!$id_kampus) {
@@ -45,20 +46,46 @@ class DashboardController extends Controller
             ->orderBy('total', 'desc')
             ->get();
 
-        $prodi_performance = Prodi::where('id_kampus', $id_kampus)->with(['kaprodi'])->withCount(['pendaftar as total_pendaftar'])->withCount(['pendaftar as pending_validasi' => function ($query) {
-            $query->where('status', 'Pending Kaprodi');
-        }])->withCount(['pendaftar as approved' => function ($query) {
-            $query->where('status', 'Approved');
-        }])->withCount(['pendaftar as butuh_tindak_lanjut' => function ($query) {
-            $query->whereIn('status', ['Revisi', 'Rejected']);
-        }])->get()->map(function ($prodi) {
-            $prodi->avg_sks_diakui = (float) (Pendaftar::where('id_prodi', $prodi->id)->avg('total_sks_diakui') ?? 0);
-            return $prodi;
-        });
-        $registration_chart = Pendaftar::where('id_kampus', $id_kampus)->select(DB::raw('DATE_FORMAT(created_at, \"%Y-%m\") as month'), DB::raw('COUNT(*) as total'))->groupBy('month')->orderBy('month', 'asc')->get();
-        $ai_summary = ['total_reference_keywords' => DB::table('mk_referensi_ai')->count(), 'total_described_courses' => KurikulumMk::whereHas('prodi', function ($q) use ($id_kampus) {
-            $q->where('id_kampus', $id_kampus);
-        })->whereNotNull('deskripsi_singkat')->count(), 'total_courses' => $stats['total_mk'],];
-        return response()->json(['kampus' => $kampus, 'stats' => $stats, 'status_breakdown' => $status_breakdown, 'prodi_performance' => $prodi_performance, 'registration_chart' => $registration_chart, 'ai_summary' => $ai_summary, 'nama_admin' => $user->nama_lengkap], 200);
+        $prodi_performance = Prodi::where('id_kampus', $id_kampus)
+            ->with(['kaprodi'])
+            ->withCount(['pendaftar as total_pendaftar'])
+            ->withCount(['pendaftar as pending_validasi' => function ($query) {
+                $query->where('status', 'Pending Kaprodi');
+            }])
+            ->withCount(['pendaftar as approved' => function ($query) {
+                $query->where('status', 'Approved');
+            }])
+            ->withCount(['pendaftar as butuh_tindak_lanjut' => function ($query) {
+                $query->whereIn('status', ['Revisi', 'Rejected']);
+            }])
+            ->get()
+            ->map(function ($prodi) {
+                $prodi->avg_sks_diakui = (float) (Pendaftar::where('id_prodi', $prodi->id)->avg('total_sks_diakui') ?? 0);
+                return $prodi;
+            });
+
+        $registration_chart = Pendaftar::where('id_kampus', $id_kampus)
+            ->select(DB::raw('DATE_FORMAT(created_at, "%Y-%m") as month'), DB::raw('COUNT(*) as total'))
+            ->groupBy('month')
+            ->orderBy('month', 'asc')
+            ->get();
+
+        $ai_summary = [
+            'total_reference_keywords' => DB::table('mk_referensi_ai')->count(), 
+            'total_described_courses' => KurikulumMk::whereHas('prodi', function ($q) use ($id_kampus) {
+                $q->where('id_kampus', $id_kampus);
+            })->whereNotNull('deskripsi_singkat')->count(), 
+            'total_courses' => $stats['total_mk'],
+        ];
+
+        return response()->json([
+            'kampus' => $kampus, 
+            'stats' => $stats, 
+            'status_breakdown' => $status_breakdown, 
+            'prodi_performance' => $prodi_performance, 
+            'registration_chart' => $registration_chart, 
+            'ai_summary' => $ai_summary, 
+            'nama_admin' => $user->nama_lengkap
+        ], 200);
     }
 }

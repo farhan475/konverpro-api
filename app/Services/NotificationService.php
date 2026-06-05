@@ -11,8 +11,12 @@ class NotificationService
 {
     /**
      * Kirim notifikasi berdasarkan event
+     * @param string $eventCode
+     * @param string|null $recipientEmail
+     * @param string|null $recipientWA
+     * @param array<string, mixed> $data
      */
-    public static function send($eventCode, $recipientEmail, $recipientWA, $data = [])
+    public static function send(string $eventCode, ?string $recipientEmail, ?string $recipientWA, array $data = []): void
     {
         $template = DB::table('notifikasi_templates')
             ->where('kode_event', $eventCode)
@@ -25,9 +29,9 @@ class NotificationService
         }
 
         // Replace Placeholders
-        $emailContent = self::parseTemplate($template->konten_email, $data);
-        $waContent    = self::parseTemplate($template->konten_wa, $data);
-        $subject      = self::parseTemplate($template->subjek_email, $data);
+        $emailContent = self::parseTemplate(strval($template->konten_email), $data);
+        $waContent    = self::parseTemplate(strval($template->konten_wa), $data);
+        $subject      = self::parseTemplate(strval($template->subjek_email), $data);
 
         // Send Email
         if ($recipientEmail && !empty($emailContent)) {
@@ -44,18 +48,24 @@ class NotificationService
         }
     }
 
-    private static function parseTemplate($content, $data)
+    /**
+     * @param string $content
+     * @param array<string, mixed> $data
+     * @return string
+     */
+    private static function parseTemplate(string $content, array $data): string
     {
         if (empty($content)) return "";
         
         foreach ($data as $key => $value) {
-            $content = str_replace("{" . strtoupper($key) . "}", $value, $content);
+            $valStr = is_scalar($value) ? (string) $value : '';
+            $content = str_replace("{" . strtoupper($key) . "}", $valStr, $content);
         }
         
         return $content;
     }
 
-    private static function sendWA($phone, $message)
+    private static function sendWA(string $phone, string $message): void
     {
         // Simulasi pengiriman via API Gateway (misal: Fonnte/Wootils)
         Log::info("WA SENT TO {$phone}: {$message}");

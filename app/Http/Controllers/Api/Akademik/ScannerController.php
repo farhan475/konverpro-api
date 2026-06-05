@@ -8,13 +8,15 @@ use Illuminate\Support\Facades\DB;
 use App\Models\Prodi;
 use App\Models\Pendaftar;
 use App\Models\TranskripAsal;
+use Illuminate\Http\JsonResponse;
+use App\Models\User;
 
 class ScannerController extends Controller
 {
-    public function index(Request $request): \Illuminate\Http\JsonResponse
+    public function index(Request $request): JsonResponse
     {
+        /** @var User $user */
         $user = $request->user();
-        assert($user !== null);
         $id_kampus = $user->id_kampus;
 
         if (!$id_kampus) {
@@ -31,7 +33,7 @@ class ScannerController extends Controller
         ], 200);
     }
 
-    public function saveScan(Request $request): \Illuminate\Http\JsonResponse
+    public function saveScan(Request $request): JsonResponse
     {
         $request->validate([
             'id_prodi' => 'required|exists:prodi,id',
@@ -45,6 +47,7 @@ class ScannerController extends Controller
             'matches.*.nilai_asal' => 'required|string|max:5',
         ]);
 
+        /** @var User $user */
         $user = $request->user();
         $id_kampus = $user->id_kampus;
 
@@ -53,25 +56,31 @@ class ScannerController extends Controller
                 // Generate ID Unik APL_YYMMDDXXXX
                 $id_pendaftar = 'APL_' . date('ymd') . rand(1000, 9999);
 
-                $pendaftar = Pendaftar::create([
+                Pendaftar::create([
                     'id' => $id_pendaftar,
                     'id_kampus' => $id_kampus,
-                    'id_prodi' => $request->id_prodi,
-                    'nama_lengkap' => $request->nama_lengkap,
-                    'email' => $request->email,
-                    'no_whatsapp' => $request->no_whatsapp,
-                    'asal_kampus' => $request->asal_kampus,
+                    'id_prodi' => $request->input('id_prodi'),
+                    'nama_lengkap' => $request->input('nama_lengkap'),
+                    'email' => $request->input('email'),
+                    'no_whatsapp' => $request->input('no_whatsapp'),
+                    'asal_kampus' => $request->input('asal_kampus'),
                     'jalur_masuk' => 'walk_in',
                     'status' => 'Pending Kaprodi',
                     'total_sks_diakui' => 0,
                 ]);
 
-                foreach ($request->matches as $match) {
+                /** @var array<int, array<string, mixed>> $matches */
+                $matches = $request->input('matches');
+                foreach ($matches as $match) {
+                    $mkAsal = $match['mk_asal'];
+                    $sksAsal = $match['sks_asal'];
+                    $nilaiAsal = $match['nilai_asal'];
+
                     TranskripAsal::create([
                         'id_pendaftar' => $id_pendaftar,
-                        'nama_mk_asal' => $match['mk_asal'],
-                        'sks_asal' => $match['sks_asal'],
-                        'nilai_huruf_asal' => $match['nilai_asal'],
+                        'nama_mk_asal' => is_scalar($mkAsal) ? (string) $mkAsal : '',
+                        'sks_asal' => is_numeric($sksAsal) ? (int) $sksAsal : 0,
+                        'nilai_huruf_asal' => is_scalar($nilaiAsal) ? (string) $nilaiAsal : '',
                     ]);
                 }
 
@@ -89,19 +98,21 @@ class ScannerController extends Controller
         }
     }
 
-    public function autoMatch(Request $request): \Illuminate\Http\JsonResponse
+    public function autoMatch(Request $request): JsonResponse
     {
         $request->validate([
             'id_prodi' => 'required|exists:prodi,id',
             'mk_asal' => 'required|string',
         ]);
 
-        $mkAsal = strtolower($request->mk_asal);
+        $mkAsalInput = $request->input('mk_asal');
+        $mkAsal = strtolower(is_scalar($mkAsalInput) ? (string)$mkAsalInput : '');
+        $idProdi = $request->input('id_prodi');
         
         // 1. Cari via MkReferensiAi
         $match = \App\Models\MkReferensiAi::where('is_active', true)
-            ->whereHas('mataKuliah', function($q) use ($request) {
-                $q->where('id_prodi', $request->id_prodi);
+            ->whereHas('mataKuliah', function($q) use ($idProdi) {
+                $q->where('id_prodi', $idProdi);
             })
             ->where(function($q) use ($mkAsal) {
                 $q->where('keyword', 'like', "%{$mkAsal}%")
@@ -111,7 +122,7 @@ class ScannerController extends Controller
             ->orderBy('weight', 'desc')
             ->first();
 
-        if ($match) {
+        if ($match instanceof \App\Models\MkReferensiAi) {
             /** @var \App\Models\KurikulumMk $mataKuliah */
             $mataKuliah = $match->mataKuliah;
             return response()->json([
@@ -127,11 +138,11 @@ class ScannerController extends Controller
         }
 
         // 2. Fallback: Simple keyword match ke nama_mk langsung
-        $fallback = \App\Models\KurikulumMk::where('id_prodi', $request->id_prodi)
+        $fallback = \App\Models\KurikulumMk::where('id_prodi', $idProdi)
             ->where('nama_mk', 'like', "%{$mkAsal}%")
             ->first();
 
-        if ($fallback) {
+        if ($fallback instanceof \App\Models\KurikulumMk) {
             return response()->json([
                 'success' => true,
                 'match' => [

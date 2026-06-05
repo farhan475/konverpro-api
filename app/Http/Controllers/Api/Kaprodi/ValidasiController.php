@@ -9,13 +9,15 @@ use App\Models\Pendaftar;
 use App\Models\KurikulumMk;
 use App\Models\HasilKonversi;
 use App\Models\Prodi;
+use Illuminate\Http\JsonResponse;
+use App\Models\User;
 
 class ValidasiController extends Controller
 {
-    public function index(Request $request): \Illuminate\Http\JsonResponse
+    public function index(Request $request): JsonResponse
     {
+        /** @var User $user */
         $user = $request->user();
-        assert($user !== null);
         $prodi_ids = Prodi::where('id_kaprodi', $user->id)->pluck('id');
 
         $pendaftar = Pendaftar::whereIn('id_prodi', $prodi_ids)
@@ -30,7 +32,7 @@ class ValidasiController extends Controller
         ]);
     }
 
-    public function show(string $id): \Illuminate\Http\JsonResponse
+    public function show(string $id): JsonResponse
     {
         $pendaftar = Pendaftar::with(['prodi', 'transkripAsal', 'hasilKonversi'])->findOrFail($id);
         
@@ -50,32 +52,39 @@ class ValidasiController extends Controller
         ]);
     }
 
-    public function process(Request $request, string $id): \Illuminate\Http\JsonResponse
+    public function process(Request $request, string $id): JsonResponse
     {
         $pendaftar = Pendaftar::findOrFail($id);
         
         DB::transaction(function () use ($pendaftar, $request) {
+            $hash = $request->input('hash_ba_digital');
             $pendaftar->update([
                 'status' => 'Approved',
-                'hash_ba_digital' => $request->hash_ba_digital
+                'hash_ba_digital' => is_scalar($hash) ? (string) $hash : null
             ]);
 
             HasilKonversi::where('id_pendaftar', $pendaftar->id)->delete();
             
             $total_sks = 0;
-            foreach ($request->mapping as $item) {
+            /** @var array<int, array<string, mixed>> $mapping */
+            $mapping = $request->input('mapping', []);
+            foreach ($mapping as $item) {
                 $mk_tujuan = KurikulumMk::find($item['id_mk_tujuan']);
-                $sks = $mk_tujuan ? $mk_tujuan->sks : 0;
-                
-                HasilKonversi::create([
-                    'id_pendaftar' => $pendaftar->id,
-                    'id_mk_tujuan' => $item['id_mk_tujuan'],
-                    'id_transkrip_asal' => $item['id_transkrip_asal'],
-                    'nilai_akhir_huruf' => $item['nilai_akhir_huruf'],
-                    'sks_diakui' => $sks,
-                    'metode_pemetaan' => 'Manual Kaprodi',
-                ]);
-                $total_sks += $sks;
+                if ($mk_tujuan instanceof KurikulumMk) {
+                    $sks = $mk_tujuan->sks;
+                    $idMkAsal = $item['id_transkrip_asal'];
+                    $nilai = $item['nilai_akhir_huruf'];
+
+                    HasilKonversi::create([
+                        'id_pendaftar' => $pendaftar->id,
+                        'id_mk_tujuan' => is_numeric($item['id_mk_tujuan']) ? (int) $item['id_mk_tujuan'] : 0,
+                        'id_transkrip_asal' => is_numeric($idMkAsal) ? (int) $idMkAsal : 0,
+                        'nilai_akhir_huruf' => is_scalar($nilai) ? (string) $nilai : '',
+                        'sks_diakui' => $sks,
+                        'metode_pemetaan' => 'Manual Kaprodi',
+                    ]);
+                    $total_sks += $sks;
+                }
             }
             
             $pendaftar->update(['total_sks_diakui' => $total_sks]);
@@ -83,8 +92,8 @@ class ValidasiController extends Controller
             // Kirim Notifikasi Approved
             \App\Services\NotificationService::send(
                 'pendaftar_approved',
-                $pendaftar->email,
-                $pendaftar->no_whatsapp,
+                is_scalar($pendaftar->email) ? (string) $pendaftar->email : null,
+                is_scalar($pendaftar->no_whatsapp) ? (string) $pendaftar->no_whatsapp : null,
                 [
                     'nama' => $pendaftar->nama_lengkap,
                     'id' => $pendaftar->id,
@@ -102,9 +111,9 @@ class ValidasiController extends Controller
     }
 
     /**
-     * Bulk Process untuk menyetujui banyak mahasiswa sekaligus (Asumsi AI sudah memetakan)
+     * Bulk Process untuk menyetujui banyak mahasiswa sekaligus
      */
-    public function bulkProcess(Request $request): \Illuminate\Http\JsonResponse
+    public function bulkProcess(Request $request): JsonResponse
     {
         $request->validate([
             'ids' => 'required|array',
@@ -113,12 +122,17 @@ class ValidasiController extends Controller
         ]);
 
         $count = 0;
-        foreach ($request->ids as $id) {
+        /** @var array<int, string> $ids */
+        $ids = $request->input('ids');
+        $hashInput = $request->input('hash_ba_digital');
+        $hash = is_scalar($hashInput) ? (string) $hashInput : '';
+
+        foreach ($ids as $id) {
             $pendaftar = Pendaftar::where('id', $id)->where('status', 'Pending Kaprodi')->first();
-            if ($pendaftar) {
+            if ($pendaftar instanceof Pendaftar) {
                 $pendaftar->update([
                     'status' => 'Approved',
-                    'hash_ba_digital' => $request->hash_ba_digital
+                    'hash_ba_digital' => $hash
                 ]);
                 $count++;
             }
@@ -130,9 +144,12 @@ class ValidasiController extends Controller
         ]);
     }
 
-    public function printData(string $id): \Illuminate\Http\JsonResponse
+    public function printData(string $id): JsonResponse
     {
         $pendaftar = Pendaftar::with(['prodi.kampus'])->findOrFail($id);
+        /** @var \App\Models\Prodi $prodi */
+        $prodi = $pendaftar->prodi;
+        
         $hasil = HasilKonversi::where('id_pendaftar', $id)
             ->join('kurikulum_mk', 'hasil_konversi.id_mk_tujuan', '=', 'kurikulum_mk.id')
             ->join('transkrip_asal', 'hasil_konversi.id_transkrip_asal', '=', 'transkrip_asal.id')
@@ -145,9 +162,6 @@ class ValidasiController extends Controller
             )
             ->get();
 
-        /** @var \App\Models\Pendaftar $pendaftar */
-        /** @var \App\Models\Prodi $prodi */
-        $prodi = $pendaftar->prodi;
         return response()->json([
             'success' => true,
             'data' => [
@@ -162,6 +176,9 @@ class ValidasiController extends Controller
     public function downloadPdf(string $id): \Illuminate\Http\Response
     {
         $pendaftar = Pendaftar::with(['prodi.kampus'])->findOrFail($id);
+        /** @var \App\Models\Prodi $prodi */
+        $prodi = $pendaftar->prodi;
+
         $hasil = HasilKonversi::where('id_pendaftar', $id)
             ->join('kurikulum_mk', 'hasil_konversi.id_mk_tujuan', '=', 'kurikulum_mk.id')
             ->join('transkrip_asal', 'hasil_konversi.id_transkrip_asal', '=', 'transkrip_asal.id')
@@ -175,9 +192,7 @@ class ValidasiController extends Controller
             ->get();
 
         $dompdf = new \Dompdf\Dompdf(['isRemoteEnabled' => true]);
-        /** @var \App\Models\Pendaftar $pendaftar */
-        /** @var \App\Models\Prodi $prodi */
-        $prodi = $pendaftar->prodi;
+        
         /** @var view-string $viewName */
         $viewName = 'pdf.berita-acara';
         $html = view($viewName, [
@@ -191,7 +206,10 @@ class ValidasiController extends Controller
         $dompdf->setPaper('A4', 'portrait');
         $dompdf->render();
 
-        return response($dompdf->output(), 200, [
+        /** @var string $output */
+        $output = $dompdf->output();
+
+        return response($output, 200, [
             'Content-Type' => 'application/pdf',
             'Content-Disposition' => 'inline; filename="Berita_Acara_' . $pendaftar->id . '.pdf"'
         ]);

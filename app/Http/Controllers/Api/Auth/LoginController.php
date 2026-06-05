@@ -4,13 +4,13 @@ namespace App\Http\Controllers\Api\Auth;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use App\Models\User;
+use Illuminate\Http\JsonResponse;
 
 class LoginController extends Controller
 {
-    public function index(Request $request)
+    public function index(Request $request): JsonResponse
     {
         return response()->json([
             'app_name' => config('app.name'),
@@ -19,7 +19,7 @@ class LoginController extends Controller
         ]);
     }
 
-    public function login(Request $request)
+    public function login(Request $request): JsonResponse
     {
         $credentials = $request->validate([
             'email' => 'required|email',
@@ -28,7 +28,7 @@ class LoginController extends Controller
 
         $user = User::where('email', $credentials['email'])->first();
 
-        if ($user && Hash::check($credentials['password'], $user->password_hash)) {
+        if ($user instanceof User && Hash::check($credentials['password'], $user->password_hash)) {
             $token = $user->createToken('auth_token')->plainTextToken;
             $user->update(['last_login' => now()]);
 
@@ -43,9 +43,10 @@ class LoginController extends Controller
         ], 401);
     }
 
-    public function me(Request $request)
+    public function me(Request $request): JsonResponse
     {
-        if (!$request->user()) {
+        $user = $request->user();
+        if (!$user) {
             return response()->json([
                 'message' => 'Tidak ada sesi login aktif.',
                 'csrf_token' => csrf_token()
@@ -53,14 +54,20 @@ class LoginController extends Controller
         }
 
         return response()->json([
-            'user' => $request->user(),
+            'user' => $user,
             'csrf_token' => csrf_token()
         ], 200);
     }
 
-    public function logout(Request $request)
+    public function logout(Request $request): JsonResponse
     {
-        $request->user()->currentAccessToken()->delete();
+        $user = $request->user();
+        if ($user instanceof User) {
+            /** @var \Laravel\Sanctum\PersonalAccessToken $token */
+            $token = $user->currentAccessToken();
+            $token->delete();
+        }
+        
         return response()->json(['message' => 'Logout berhasil.'], 200);
     }
 }

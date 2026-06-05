@@ -6,15 +6,20 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\KurikulumMk;
 use App\Models\Prodi;
+use App\Models\User;
+use Illuminate\Http\JsonResponse;
 
 class KurikulumController extends Controller
 {
     /**
      * Menampilkan daftar mata kuliah kurikulum.
      */
-    public function index(Request $request)
+    public function index(Request $request): JsonResponse
     {
-        $id_kampus = $request->user()->id_kampus;
+        /** @var User $user */
+        $user = $request->user();
+        $id_kampus = $user->id_kampus;
+
         $kurikulum = KurikulumMk::whereHas('prodi', function($q) use ($id_kampus) {
                 $q->where('id_kampus', $id_kampus);
             })
@@ -29,7 +34,7 @@ class KurikulumController extends Controller
     /**
      * Menambah mata kuliah baru (Hanya untuk role Kurikulum).
      */
-    public function store(Request $request)
+    public function store(Request $request): JsonResponse
     {
         $validated = $request->validate([
             'id_prodi' => 'required|exists:prodi,id',
@@ -41,9 +46,12 @@ class KurikulumController extends Controller
             'deskripsi_singkat' => 'nullable|string',
         ]);
 
+        /** @var User $user */
+        $user = $request->user();
+
         // Pastikan prodi milik kampus user
-        $prodi = Prodi::where('id', $validated['id_prodi'])
-            ->where('id_kampus', $request->user()->id_kampus)
+        Prodi::where('id', $validated['id_prodi'])
+            ->where('id_kampus', $user->id_kampus)
             ->firstOrFail();
 
         $mk = KurikulumMk::create($validated);
@@ -54,11 +62,15 @@ class KurikulumController extends Controller
     /**
      * Memperbarui mata kuliah.
      */
-    public function update(Request $request, $id)
+    public function update(Request $request, string $id): JsonResponse
     {
+        /** @var User $user */
+        $user = $request->user();
+        $id_kampus = $user->id_kampus;
+
         $mk = KurikulumMk::where('id', $id)
-            ->whereHas('prodi', function($q) use ($request) {
-                $q->where('id_kampus', $request->user()->id_kampus);
+            ->whereHas('prodi', function($q) use ($id_kampus) {
+                $q->where('id_kampus', $id_kampus);
             })
             ->firstOrFail();
 
@@ -81,11 +93,15 @@ class KurikulumController extends Controller
     /**
      * Menghapus mata kuliah.
      */
-    public function destroy(Request $request, $id)
+    public function destroy(Request $request, string $id): JsonResponse
     {
+        /** @var User $user */
+        $user = $request->user();
+        $id_kampus = $user->id_kampus;
+
         $mk = KurikulumMk::where('id', $id)
-            ->whereHas('prodi', function($q) use ($request) {
-                $q->where('id_kampus', $request->user()->id_kampus);
+            ->whereHas('prodi', function($q) use ($id_kampus) {
+                $q->where('id_kampus', $id_kampus);
             })
             ->firstOrFail();
 
@@ -97,9 +113,13 @@ class KurikulumController extends Controller
     /**
      * Import mata kuliah massal.
      */
-    public function import(\App\Http\Requests\Kurikulum\ImportKurikulumRequest $request, \App\Services\Kurikulum\ImportKurikulumService $service)
+    public function import(\App\Http\Requests\Kurikulum\ImportKurikulumRequest $request, \App\Services\Kurikulum\ImportKurikulumService $service): JsonResponse
     {
-        $count = $service->import($request->id_prodi, $request->excel_data);
+        /** @var array<int, array<string, mixed>> $excelData */
+        $excelData = $request->input('excel_data', []);
+        $idProdiInput = $request->input('id_prodi');
+        $idProdi = is_numeric($idProdiInput) ? intval($idProdiInput) : 0;
+        $count = $service->import($idProdi, $excelData);
         return response()->json(['message' => "{$count} mata kuliah berhasil diimpor."], 201);
     }
 }

@@ -12,29 +12,32 @@ class DynamicNotificationMail extends Mailable
 {
     use Queueable, SerializesModels;
 
-    public $subject;
-    public $content;
+    public string $dynamicSubject;
+    public string $dynamicContent;
 
-    public function __construct($subject, $content)
+    public function __construct(string $subject, string $content)
     {
-        $this->subject = $subject;
-        $this->content = $content;
+        $this->dynamicSubject = $subject;
+        $this->dynamicContent = $content;
     }
 
     public function envelope(): Envelope
     {
         return new Envelope(
-            subject: $this->subject,
+            subject: $this->dynamicSubject,
         );
     }
 
     public function content(): Content
     {
         return new Content(
-            htmlString: $this->content,
+            htmlString: $this->dynamicContent,
         );
     }
 
+    /**
+     * @return array<int, \Illuminate\Mail\Mailables\Attachment>
+     */
     public function attachments(): array
     {
         return [];
