@@ -39,6 +39,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
     // Admin
     Route::middleware('role:admin')->prefix('admin')->group(function () {
         Route::get('dashboard', [Admin\DashboardController::class, 'index']);
+        Route::get('template/download', [Admin\TemplateController::class, 'download']);
         Route::get('pendaftar', [Admin\PendaftarController::class, 'index']);
         Route::post('pendaftar', [Admin\PendaftarController::class, 'store']);
         Route::get('pendaftar/{pendaftar}', [Admin\PendaftarController::class, 'show']);

@@ -2,97 +2,80 @@
 
 namespace Database\Seeders;
 
-use Illuminate\Database\Seeder;
-use App\Models\User;
-use App\Models\Kampus;
+use App\Enums\RoleEnum;
 use App\Models\Prodi;
+use App\Models\User;
+use App\Models\KurikulumMk;
+use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\DB;
 
 class WhiteTestingSeeder extends Seeder
 {
     public function run(): void
     {
-        // 1. Create a Test Campus (Strictly Internal)
-        $kampus = Kampus::updateOrCreate(
-            ['email_utama' => 'admin@unsia.ac.id'],
-            [
-                'nama_kampus' => 'Universitas Siber Indonesia',
-                'no_telp' => '021-998877',
-                'alamat_resmi' => 'Jl. Digital No. 1, Jakarta',
-                'rektor_pimpinan' => 'Dr. White Tester, M.Kom',
-                'website' => 'https://unsia.ac.id',
-                'paket_layanan' => 'Enterprise',
-                'status_akun' => 'active',
-                'is_official_partner' => true
-            ]
-        );
-
-        // 2. Create Users for Each Role
+        // 1. Create Users for Each Role
         $users = [
             [
-                'nama_lengkap' => 'Super Admin KonverPro',
-                'email' => 'superadmin@konverpro.com',
-                'password' => 'password123',
-                'role' => 'superadmin',
-                'id_kampus' => null,
+                'nama_lengkap' => 'Admin Inputer',
+                'email' => 'admin@test.com',
+                'password' => 'password',
+                'role' => RoleEnum::ADMIN,
             ],
             [
-                'nama_lengkap' => 'Admin Institusi',
-                'email' => 'admin@unsia.ac.id',
-                'password' => 'password123',
-                'role' => 'admin_pt',
-                'id_kampus' => $kampus->id,
-            ],
-            [
-                'nama_lengkap' => 'Staf Akademik',
-                'email' => 'akademik@unsia.ac.id',
-                'password' => 'password123',
-                'role' => 'akademik',
-                'id_kampus' => $kampus->id,
+                'nama_lengkap' => 'Staff Akademik',
+                'email' => 'akademik@test.com',
+                'password' => 'password',
+                'role' => RoleEnum::AKADEMIK,
             ],
             [
                 'nama_lengkap' => 'Kaprodi Informatika',
-                'email' => 'kaprodi@unsia.ac.id',
-                'password' => 'password123',
-                'role' => 'kaprodi',
-                'id_kampus' => $kampus->id,
-            ]
+                'email' => 'kaprodi@test.com',
+                'password' => 'password',
+                'role' => RoleEnum::KAPRODI,
+            ],
         ];
 
         foreach ($users as $u) {
-            User::updateOrCreate(
-                ['email' => $u['email']],
-                [
-                    'nama_lengkap' => $u['nama_lengkap'],
-                    'id_kampus' => $u['id_kampus'],
-                    'password_hash' => Hash::make($u['password']),
-                    'role' => $u['role'],
-                    'status' => 'active'
-                ]
-            );
+            User::updateOrCreate(['email' => $u['email']], $u);
         }
 
-        // 3. Setup Prodi for Kaprodi
-        $kaprodi = User::where('email', 'kaprodi@unsia.ac.id')->first();
-        $prodi = Prodi::updateOrCreate(
-            ['id_kampus' => $kampus->id, 'nama_prodi' => 'Informatika'],
-            [
-                'jenjang' => 'S1',
-                'kode_prodi' => 'INF-01',
-                'id_kaprodi' => $kaprodi->id,
-                'biaya_pendaftaran' => 0,
-                'biaya_kuliah' => 0
-            ]
-        );
+        $kaprodi = User::where('email', 'kaprodi@test.com')->first();
 
-        echo "Seeders created successfully!\n";
-        echo "----------------------------------\n";
-        echo "Login Credentials (Password: password123)\n";
-        echo "Superadmin: superadmin@konverpro.com\n";
-        echo "Admin PT  : admin@unsia.ac.id\n";
-        echo "Akademik  : akademik@unsia.ac.id\n";
-        echo "Kaprodi   : kaprodi@unsia.ac.id\n";
-        echo "----------------------------------\n";
+        // 2. Create All UNSIA Prodi
+        $prodis = [
+            ['nama_prodi' => 'PJJ Informatika', 'jenjang' => 'S1', 'kode_prodi' => 'IF', 'id_kaprodi' => $kaprodi->id],
+            ['nama_prodi' => 'PJJ Sistem Informasi', 'jenjang' => 'S1', 'kode_prodi' => 'SI'],
+            ['nama_prodi' => 'PJJ Manajemen', 'jenjang' => 'S1', 'kode_prodi' => 'MNJ'],
+            ['nama_prodi' => 'PJJ Akuntansi', 'jenjang' => 'S1', 'kode_prodi' => 'AKT'],
+            ['nama_prodi' => 'PJJ Komunikasi', 'jenjang' => 'S1', 'kode_prodi' => 'IK'],
+            ['nama_prodi' => 'PJJ Teknologi Informasi', 'jenjang' => 'S1', 'kode_prodi' => 'TI'],
+        ];
+
+        foreach ($prodis as $p) {
+            $prodi = Prodi::updateOrCreate(['nama_prodi' => $p['nama_prodi']], $p);
+
+            // 3. Seed some Curriculum for IF to allow testing
+            if ($p['kode_prodi'] === 'IF') {
+                $this->seedKurikulumIF($prodi->id);
+            }
+        }
+    }
+
+    private function seedKurikulumIF(string $prodiId): void
+    {
+        $mks = [
+            ['kode_mk' => 'IF101', 'nama_mk' => 'Pemrograman Dasar', 'sks' => 3, 'semester' => 1],
+            ['kode_mk' => 'IF102', 'nama_mk' => 'Matematika Diskrit', 'sks' => 3, 'semester' => 1],
+            ['kode_mk' => 'IF201', 'nama_mk' => 'Struktur Data', 'sks' => 4, 'semester' => 2],
+            ['kode_mk' => 'IF202', 'nama_mk' => 'Basis Data', 'sks' => 3, 'semester' => 2],
+            ['kode_mk' => 'IF301', 'nama_mk' => 'Kecerdasan Buatan', 'sks' => 3, 'semester' => 3],
+        ];
+
+        foreach ($mks as $mk) {
+            KurikulumMk::updateOrCreate(
+                ['id_prodi' => $prodiId, 'kode_mk' => $mk['kode_mk']],
+                $mk
+            );
+        }
     }
 }
