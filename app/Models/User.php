@@ -2,24 +2,23 @@
 
 namespace App\Models;
 
-use Illuminate\Foundation\Auth\User as Authenticatable;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use App\Enums\RoleEnum;
+use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Foundation\Auth\User as Authenticatable;
 use Laravel\Sanctum\HasApiTokens;
 
 class User extends Authenticatable
 {
-    use HasApiTokens;
+    use HasApiTokens, HasUuids;
+
     protected $table = 'users';
 
-    public const UPDATED_AT = null;
-
     protected $fillable = [
-        'id_kampus',
         'nama_lengkap',
         'email',
         'no_whatsapp',
-        'password_hash',
+        'password',
         'role',
         'avatar_path',
         'tanda_tangan_path',
@@ -28,27 +27,25 @@ class User extends Authenticatable
     ];
 
     protected $hidden = [
-        'password_hash',
+        'password',
+        'remember_token',
     ];
 
     protected $casts = [
         'last_login' => 'datetime',
+        'role' => RoleEnum::class,
+        'password' => 'hashed',
     ];
-
-    public function getAuthPassword(): string
-    {
-        return $this->password_hash;
-    }
-
-    /** @return BelongsTo<Kampus, $this> */
-    public function kampus(): BelongsTo
-    {
-        return $this->belongsTo(Kampus::class, 'id_kampus');
-    }
 
     /** @return HasMany<Prodi, $this> */
     public function prodiDipimpin(): HasMany
     {
         return $this->hasMany(Prodi::class, 'id_kaprodi');
+    }
+
+    /** @return HasMany<Pendaftar, $this> */
+    public function pendaftarDibuat(): HasMany
+    {
+        return $this->hasMany(Pendaftar::class, 'created_by');
     }
 }

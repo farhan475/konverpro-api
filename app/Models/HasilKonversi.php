@@ -2,14 +2,15 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class HasilKonversi extends Model
 {
-    protected $table = 'hasil_konversi';
+    use HasUuids;
 
-    public $timestamps = false;
+    protected $table = 'hasil_konversi';
 
     protected $fillable = [
         'id_pendaftar',
@@ -19,12 +20,12 @@ class HasilKonversi extends Model
         'sks_diakui',
         'metode_pemetaan',
         'match_score',
-        'match_method',
         'match_reason',
+        'is_unmatched',
     ];
 
     protected $casts = [
-        'sks_diakui' => 'integer',
+        'is_unmatched' => 'boolean',
         'match_score' => 'decimal:2',
     ];
 

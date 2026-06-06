@@ -1,74 +1,72 @@
 <?php
 
-use Illuminate\Http\Request;
+use App\Http\Controllers\Api\Auth\LoginController;
+use App\Http\Controllers\Api\Superadmin as Superadmin;
+use App\Http\Controllers\Api\Admin as Admin;
+use App\Http\Controllers\Api\Akademik as Akademik;
+use App\Http\Controllers\Api\Kaprodi as Kaprodi;
 use Illuminate\Support\Facades\Route;
 
-// Import Controllers
-use App\Http\Controllers\Api\Auth\LoginController;
-use App\Http\Controllers\Api\Akademik\AntreanController;
-use App\Http\Controllers\Api\Akademik\ScannerController;
-use App\Http\Controllers\Api\Kaprodi\DashboardController as KaprodiDashboard;
-use App\Http\Controllers\Api\Kaprodi\ValidasiController;
-use App\Http\Controllers\Api\Kaprodi\MahasiswaController;
-use App\Http\Controllers\Api\Kaprodi\PemetaanController;
-use App\Http\Controllers\Api\Kaprodi\LaporanController as KaprodiLaporan;
-use App\Http\Controllers\Api\Kaprodi\PengaturanController as KaprodiPengaturan;
-use App\Http\Controllers\Api\AdminPt\DashboardController as AdminPtDashboard;
-use App\Http\Controllers\Api\AdminPt\UserController as AdminPtUser;
-use App\Http\Controllers\Api\AdminPt\ProdiController as AdminPtProdi;
-use App\Http\Controllers\Api\AdminPt\ConfigController as AdminPtConfig;
-use App\Http\Controllers\Api\Superadmin\DashboardController as SuperadminDashboard;
-use App\Http\Controllers\Api\Superadmin\MitraController;
-use App\Http\Controllers\Api\Superadmin\NotifikasiController;
-use App\Http\Controllers\Api\Superadmin\AuditController;
-use App\Http\Controllers\Api\Superadmin\ConfigController as SuperadminConfig;
+/*
+|--------------------------------------------------------------------------
+| API Routes
+|--------------------------------------------------------------------------
+*/
 
-Route::post('/login', [LoginController::class, 'login']);
-Route::post('/logout', [LoginController::class, 'logout'])->middleware('auth:sanctum');
-Route::get('/user', function (Request $request) {
-    return $request->user();
-})->middleware('auth:sanctum');
-
-// Akademik Module
-Route::middleware(['auth:sanctum'])->prefix('akademik')->group(function () {
-    Route::get('/antrean', [AntreanController::class, 'index']);
-    Route::get('/antrean/{id}', [AntreanController::class, 'show']);
-    Route::post('/scan/auto-match', [ScannerController::class, 'autoMatch']);
-    Route::post('/scan/save', [ScannerController::class, 'saveScan']);
+// Auth
+Route::prefix('auth')->group(function () {
+    Route::post('login', [LoginController::class, 'login']);
+    Route::middleware('auth:sanctum')->group(function () {
+        Route::get('me', [LoginController::class, 'me']);
+        Route::post('logout', [LoginController::class, 'logout']);
+    });
 });
 
-// Kaprodi Module
-Route::middleware(['auth:sanctum'])->prefix('kaprodi')->group(function () {
-    Route::get('/dashboard', [KaprodiDashboard::class, 'index']);
-    Route::get('/validasi', [ValidasiController::class, 'index']);
-    Route::get('/validasi/{id}', [ValidasiController::class, 'show']);
-    Route::get('/validasi/{id}/print-data', [ValidasiController::class, 'printData']);
-    Route::get('/validasi/{id}/download-pdf', [ValidasiController::class, 'downloadPdf']);
-    Route::post('/validasi/{id}/process', [ValidasiController::class, 'process']);
-    Route::post('/validasi/bulk-process', [ValidasiController::class, 'bulkProcess']);
-    Route::get('/mahasiswa', [MahasiswaController::class, 'index']);
-    Route::get('/pemetaan', [PemetaanController::class, 'index']);
-    Route::get('/laporan', [KaprodiLaporan::class, 'index']);
-    Route::get('/pengaturan', [KaprodiPengaturan::class, 'index']);
-    Route::put('/pengaturan/prodi/{id}', [KaprodiPengaturan::class, 'updateProdi']);
+// Protected Routes
+Route::middleware(['auth:sanctum'])->group(function () {
+
+    // Superadmin
+    Route::middleware('role:superadmin')->prefix('superadmin')->group(function () {
+        Route::get('dashboard', [Superadmin\DashboardController::class, 'index']);
+        Route::apiResource('users', Superadmin\UserController::class);
+        Route::apiResource('prodi', Superadmin\ProdiController::class);
+        Route::apiResource('kamus-sinonim', Superadmin\KamusSinonimController::class)->only(['index', 'store', 'destroy']);
+        Route::get('config', [Superadmin\ConfigController::class, 'index']);
+        Route::put('config', [Superadmin\ConfigController::class, 'update']);
+        Route::get('audit', [Superadmin\AuditController::class, 'index']);
+    });
+
+    // Admin
+    Route::middleware('role:admin')->prefix('admin')->group(function () {
+        Route::get('dashboard', [Admin\DashboardController::class, 'index']);
+        Route::get('pendaftar', [Admin\PendaftarController::class, 'index']);
+        Route::post('pendaftar', [Admin\PendaftarController::class, 'store']);
+        Route::get('pendaftar/{pendaftar}', [Admin\PendaftarController::class, 'show']);
+    });
+
+    // Akademik
+    Route::middleware('role:akademik')->prefix('akademik')->group(function () {
+        Route::get('dashboard', [Akademik\DashboardController::class, 'index']);
+        Route::get('antrean', [Akademik\AntreanController::class, 'index']);
+        Route::get('antrean/{pendaftar}', [Akademik\AntreanController::class, 'show']);
+        Route::post('antrean/{pendaftar}/proses', [Akademik\AntreanController::class, 'proses']);
+        Route::apiResource('kurikulum', Akademik\KurikulumController::class);
+        Route::apiResource('kamus-sinonim', Akademik\KamusSinonimController::class)->only(['index', 'store', 'destroy']);
+    });
+
+    // Kaprodi
+    Route::middleware('role:kaprodi')->prefix('kaprodi')->group(function () {
+        Route::get('dashboard', [Kaprodi\DashboardController::class, 'index']);
+        Route::get('validasi', [Kaprodi\ValidasiController::class, 'index']);
+        Route::get('validasi/{pendaftar}', [Kaprodi\ValidasiController::class, 'show']);
+        Route::put('hasil-konversi/{hasilKonversi}', [Kaprodi\ValidasiController::class, 'updateHasil']);
+        Route::post('validasi/{pendaftar}/approve', [Kaprodi\ValidasiController::class, 'approve']);
+        Route::post('validasi/{pendaftar}/revisi', [Kaprodi\ValidasiController::class, 'revisi']);
+        Route::post('validasi/{pendaftar}/reject', [Kaprodi\ValidasiController::class, 'reject']);
+        Route::get('laporan', [Kaprodi\LaporanController::class, 'index']);
+        Route::post('tanda-tangan', [Kaprodi\TandaTanganController::class, 'store']);
+        Route::delete('tanda-tangan', [Kaprodi\TandaTanganController::class, 'destroy']);
+    });
+
 });
 
-// Admin PT Module
-Route::middleware(['auth:sanctum'])->prefix('admin-pt')->group(function () {
-    Route::get('/dashboard', [AdminPtDashboard::class, 'index']);
-    Route::apiResource('users', AdminPtUser::class);
-    Route::apiResource('prodi', AdminPtProdi::class);
-    Route::get('/config', [AdminPtConfig::class, 'index']);
-    Route::put('/config', [AdminPtConfig::class, 'update']);
-});
-
-// Superadmin Module
-Route::middleware(['auth:sanctum'])->prefix('superadmin')->group(function () {
-    Route::get('/dashboard', [SuperadminDashboard::class, 'index']);
-    Route::apiResource('mitra', MitraController::class);
-    Route::get('/notifikasi', [NotifikasiController::class, 'index']);
-    Route::put('/notifikasi/{id}', [NotifikasiController::class, 'update']);
-    Route::get('/audit', [AuditController::class, 'index']);
-    Route::get('/config', [SuperadminConfig::class, 'index']);
-    Route::put('/config', [SuperadminConfig::class, 'update']);
-});

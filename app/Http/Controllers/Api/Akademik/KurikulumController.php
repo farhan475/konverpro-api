@@ -1,0 +1,69 @@
+<?php
+
+namespace App\Http\Controllers\Api\Akademik;
+
+use App\Http\Controllers\Controller;
+use App\Models\KurikulumMk;
+use App\Models\Prodi;
+use App\Traits\ApiResponse;
+use App\Services\AuditService;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+
+class KurikulumController extends Controller
+{
+    use ApiResponse;
+
+    public function index(Request $request): JsonResponse
+    {
+        $query = KurikulumMk::with('prodi');
+        if ($request->id_prodi) {
+            $query->where('id_prodi', $request->id_prodi);
+        }
+        return $this->successResponse($query->get());
+    }
+
+    public function store(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'id_prodi' => 'required|exists:prodi,id',
+            'kode_mk' => 'required|string|max:20',
+            'nama_mk' => 'required|string|max:150',
+            'sks' => 'required|integer|min:1',
+            'semester' => 'required|integer|min:1',
+            'tipe_mk' => 'required|in:Wajib,Pilihan',
+        ]);
+
+        $mk = KurikulumMk::create($validated);
+        
+        AuditService::log('create_kurikulum', 'KurikulumMk', $mk->id, "Added MK {$mk->nama_mk}");
+
+        return $this->successResponse($mk, 'Course added successfully.', 201);
+    }
+
+    public function update(Request $request, KurikulumMk $kurikulum): JsonResponse
+    {
+        $validated = $request->validate([
+            'kode_mk' => 'string|max:20',
+            'nama_mk' => 'string|max:150',
+            'sks' => 'integer|min:1',
+            'semester' => 'integer|min:1',
+            'tipe_mk' => 'in:Wajib,Pilihan',
+        ]);
+
+        $kurikulum->update($validated);
+        
+        AuditService::log('update_kurikulum', 'KurikulumMk', $kurikulum->id, "Updated MK {$kurikulum->nama_mk}");
+
+        return $this->successResponse($kurikulum, 'Course updated successfully.');
+    }
+
+    public function destroy(KurikulumMk $kurikulum): JsonResponse
+    {
+        $kurikulum->delete();
+        
+        AuditService::log('delete_kurikulum', 'KurikulumMk', $kurikulum->id, "Deleted MK {$kurikulum->nama_mk}");
+
+        return $this->successResponse(null, 'Course deleted successfully.');
+    }
+}

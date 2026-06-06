@@ -3,35 +3,36 @@
 namespace App\Http\Controllers\Api\Superadmin;
 
 use App\Http\Controllers\Controller;
+use App\Models\PengaturanGlobal;
+use App\Traits\ApiResponse;
+use App\Services\AuditService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 
 class ConfigController extends Controller
 {
-    public function index(): \Illuminate\Http\JsonResponse
-    {
-        $settings = DB::table('pengaturan_global')->pluck('setting_value', 'setting_key');
+    use ApiResponse;
 
-        return response()->json([
-            'success' => true,
-            'data' => $settings
-        ]);
+    public function index(): JsonResponse
+    {
+        return $this->successResponse(
+            PengaturanGlobal::query()->pluck('setting_value', 'setting_key')
+        );
     }
 
-    public function update(Request $request): \Illuminate\Http\JsonResponse
+    public function update(Request $request): JsonResponse
     {
         $settings = $request->all();
 
         foreach ($settings as $key => $value) {
-            DB::table('pengaturan_global')->updateOrInsert(
+            PengaturanGlobal::updateOrCreate(
                 ['setting_key' => $key],
-                ['setting_value' => $value, 'updated_at' => now()]
+                ['setting_value' => $value]
             );
         }
+        
+        AuditService::log('update_config', null, null, "Updated global settings");
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Konfigurasi global berhasil disimpan.'
-        ]);
+        return $this->successResponse(null, 'Settings updated successfully.');
     }
 }

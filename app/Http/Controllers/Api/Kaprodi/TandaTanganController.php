@@ -3,70 +3,57 @@
 namespace App\Http\Controllers\Api\Kaprodi;
 
 use App\Http\Controllers\Controller;
+use App\Models\User;
+use App\Traits\ApiResponse;
+use App\Services\AuditService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
-use App\Models\User;
-use Illuminate\Http\JsonResponse;
 
 class TandaTanganController extends Controller
 {
-    /**
-     * Mengambil profil tanda tangan Kaprodi saat ini
-     */
-    public function show(Request $request): JsonResponse
-    {
-        /** @var User $user */
-        $user = $request->user();
-        return response()->json([
-            'nama_lengkap' => $user->nama_lengkap,
-            'tanda_tangan_path' => $user->tanda_tangan_path ? asset('storage/' . $user->tanda_tangan_path) : null,
-        ]);
-    }
+    use ApiResponse;
 
-    /**
-     * Mengunggah tanda tangan baru (berupa file gambar PNG/JPG)
-     */
-    public function upload(Request $request): JsonResponse
+    public function store(Request $request): JsonResponse
     {
         $request->validate([
-            'tanda_tangan' => 'required|image|mimes:png,jpg,jpeg|max:2048',
+            'tanda_tangan' => 'required|image|max:2048',
         ]);
 
-        /** @var User $user */
-        $user = $request->user();
-
-        // Hapus tanda tangan lama jika ada
+        /** @var User|null $user */
+        $user = auth()->user();
+        if (!$user) {
+            return $this->errorResponse('Unauthenticated.', 401);
+        }
+        
+        // Delete old one if exists
         if ($user->tanda_tangan_path) {
-            Storage::disk('public')->delete($user->tanda_tangan_path);
+            Storage::disk('private')->delete($user->tanda_tangan_path);
         }
 
         /** @var \Illuminate\Http\UploadedFile $file */
         $file = $request->file('tanda_tangan');
-        $path = (string) $file->store('signatures', 'public');
+        $path = $file->store('tanda_tangan', 'private');
         
-        $user->tanda_tangan_path = $path;
-        $user->save();
+        $user->update(['tanda_tangan_path' => $path]);
+        
+        AuditService::log('upload_tanda_tangan', 'User', $user->id, "Uploaded digital signature");
 
-        return response()->json([
-            'message' => 'Tanda tangan berhasil diperbarui.',
-            'path' => asset('storage/' . $path)
-        ]);
+        return $this->successResponse(['path' => $path], 'Digital signature uploaded successfully.');
     }
 
-    /**
-     * Menghapus tanda tangan
-     */
-    public function destroy(Request $request): JsonResponse
+    public function destroy(): JsonResponse
     {
-        /** @var User $user */
-        $user = $request->user();
-
-        if ($user->tanda_tangan_path) {
-            Storage::disk('public')->delete($user->tanda_tangan_path);
-            $user->tanda_tangan_path = null;
-            $user->save();
+        /** @var User|null $user */
+        $user = auth()->user();
+        if (!$user) {
+            return $this->errorResponse('Unauthenticated.', 401);
         }
 
-        return response()->json(['message' => 'Tanda tangan berhasil dihapus.']);
+        if ($user->tanda_tangan_path) {
+            Storage::disk('private')->delete($user->tanda_tangan_path);
+            $user->update(['tanda_tangan_path' => null]);
+        }
+        return $this->successResponse(null, 'Digital signature deleted.');
     }
 }

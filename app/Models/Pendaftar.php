@@ -2,53 +2,51 @@
 
 namespace App\Models;
 
+use App\Enums\StatusPendaftarEnum;
+use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-/**
- * @property int|null $jumlah
- */
 class Pendaftar extends Model
 {
+    use HasUuids;
+
     protected $table = 'pendaftar';
 
-    protected $keyType = 'string';
-
-    public $incrementing = false;
-
-    public const UPDATED_AT = null;
-
     protected $fillable = [
-        'id',
-        'id_kampus',
         'id_prodi',
+        'created_by',
         'nama_lengkap',
+        'nim_asal',
         'email',
         'no_whatsapp',
         'asal_kampus',
-        'file_transkrip_path',
-        'jalur_masuk',
+        'asal_prodi',
+        'file_transkrip_excel_path',
+        'file_transkrip_pdf_path',
         'status',
         'total_sks_diakui',
         'catatan_revisi',
         'hash_ba_digital',
+        'notif_sent_at',
     ];
 
     protected $casts = [
-        'total_sks_diakui' => 'integer',
+        'status' => StatusPendaftarEnum::class,
+        'notif_sent_at' => 'datetime',
     ];
-
-    /** @return BelongsTo<Kampus, $this> */
-    public function kampus(): BelongsTo
-    {
-        return $this->belongsTo(Kampus::class, 'id_kampus');
-    }
 
     /** @return BelongsTo<Prodi, $this> */
     public function prodi(): BelongsTo
     {
         return $this->belongsTo(Prodi::class, 'id_prodi');
+    }
+
+    /** @return BelongsTo<User, $this> */
+    public function creator(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'created_by');
     }
 
     /** @return HasMany<TranskripAsal, $this> */

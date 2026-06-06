@@ -3,20 +3,16 @@
 namespace App\Http\Controllers\Api\Superadmin;
 
 use App\Http\Controllers\Controller;
-use Illuminate\Http\Request;
 use App\Models\AuditLog;
+use App\Traits\ApiResponse;
+use Illuminate\Http\JsonResponse;
 
 class AuditController extends Controller
 {
-    public function index(Request $request): \Illuminate\Http\JsonResponse
-    {
-        $logs = AuditLog::with(['user', 'kampus'])
-            ->orderBy('created_at', 'desc')
-            ->get();
+    use ApiResponse;
 
-        return response()->json([
-            'success' => true,
-            'data' => $logs
-        ]);
+    public function index(): JsonResponse
+    {
+        return $this->successResponse(AuditLog::with('user')->latest()->paginate(50));
     }
 }

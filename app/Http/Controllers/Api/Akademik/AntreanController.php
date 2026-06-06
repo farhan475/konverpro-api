@@ -2,54 +2,53 @@
 
 namespace App\Http\Controllers\Api\Akademik;
 
+use App\Enums\StatusPendaftarEnum;
 use App\Http\Controllers\Controller;
-use Illuminate\Http\Request;
 use App\Models\Pendaftar;
+use App\Services\MatchingService;
+use App\Traits\ApiResponse;
+use App\Services\AuditService;
+use Illuminate\Http\JsonResponse;
 
 class AntreanController extends Controller
 {
-    public function index(Request $request): \Illuminate\Http\JsonResponse
+    use ApiResponse;
+
+    public function __construct(protected MatchingService $matchingService) {}
+
+    public function index(): JsonResponse
     {
-        $user = $request->user();
-        assert($user !== null);
-        $id_kampus = $user->id_kampus;
-
-        if (!$id_kampus) {
-            return response()->json(['message' => 'User tidak terasosiasi dengan kampus manapun.'], 403);
-        }
-
-        $pendaftar = Pendaftar::where('id_kampus', $id_kampus)
-            ->with(['prodi:id,nama_prodi'])
-            ->orderBy('created_at', 'desc')
-            ->get();
-
-        $stats = [
-            'total' => Pendaftar::where('id_kampus', $id_kampus)->count(),
-            'baru' => Pendaftar::where('id_kampus', $id_kampus)->where('status', 'Baru')->count(),
-            'proses' => Pendaftar::where('id_kampus', $id_kampus)->whereIn('status', ['AI Processing', 'Review Akademik'])->count(),
-            'selesai' => Pendaftar::where('id_kampus', $id_kampus)->where('status', 'Approved')->count(),
-        ];
-
-        return response()->json([
-            'success' => true,
-            'data' => $pendaftar,
-            'stats' => $stats
-        ], 200);
+        return $this->successResponse(
+            Pendaftar::whereIn('status', [StatusPendaftarEnum::BARU, StatusPendaftarEnum::AI_PROCESSING])
+                ->with('prodi')
+                ->latest()
+                ->paginate(20)
+        );
     }
 
-    public function show(Request $request, string $id): \Illuminate\Http\JsonResponse
+    public function show(Pendaftar $pendaftar): JsonResponse
     {
-        $user = $request->user();
-        assert($user !== null);
-        $id_kampus = $user->id_kampus;
-        $pendaftar = Pendaftar::where('id', $id)
-            ->where('id_kampus', $id_kampus)
-            ->with(['prodi', 'transkripAsal'])
-            ->firstOrFail();
+        return $this->successResponse($pendaftar->load('prodi', 'transkripAsal'));
+    }
 
-        return response()->json([
-            'success' => true,
-            'data' => $pendaftar
-        ]);
+    public function proses(Pendaftar $pendaftar): JsonResponse
+    {
+        if ($pendaftar->status !== StatusPendaftarEnum::BARU) {
+            return $this->errorResponse('Pendaftar is not in "Baru" status.', 400);
+        }
+
+        $pendaftar->update(['status' => StatusPendaftarEnum::AI_PROCESSING]);
+        
+        try {
+            $this->matchingService->processMatching($pendaftar);
+            $pendaftar->update(['status' => StatusPendaftarEnum::PENDING_KAPRODI]);
+            
+            AuditService::log('process_matching', 'Pendaftar', $pendaftar->id, "Processed matching for {$pendaftar->nama_lengkap}");
+            
+            return $this->successResponse(null, 'Matching process completed.');
+        } catch (\Exception $e) {
+            $pendaftar->update(['status' => StatusPendaftarEnum::BARU]);
+            return $this->errorResponse('Matching failed: ' . $e->getMessage(), 500);
+        }
     }
 }

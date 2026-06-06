@@ -2,15 +2,16 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class TranskripAsal extends Model
 {
-    protected $table = 'transkrip_asal';
+    use HasUuids;
 
-    public $timestamps = false;
+    protected $table = 'transkrip_asal';
 
     protected $fillable = [
         'id_pendaftar',
@@ -18,11 +19,6 @@ class TranskripAsal extends Model
         'sks_asal',
         'nilai_huruf_asal',
         'nilai_angka_asal',
-    ];
-
-    protected $casts = [
-        'sks_asal' => 'integer',
-        'nilai_angka_asal' => 'decimal:2',
     ];
 
     /** @return BelongsTo<Pendaftar, $this> */

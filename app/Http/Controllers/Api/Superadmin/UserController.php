@@ -3,48 +3,73 @@
 namespace App\Http\Controllers\Api\Superadmin;
 
 use App\Http\Controllers\Controller;
-use Illuminate\Http\Request;
+use App\Models\User;
+use App\Traits\ApiResponse;
+use App\Services\AuditService;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Hash;
 
 class UserController extends Controller
 {
-    /**
-     * Display a listing of the resource.
-     */
+    use ApiResponse;
+
     public function index(): JsonResponse
     {
-        return response()->json([]);
+        return $this->successResponse(User::orderBy('nama_lengkap')->get());
     }
 
-    /**
-     * Store a newly created resource in storage.
-     */
     public function store(Request $request): JsonResponse
     {
-        return response()->json([]);
+        $validated = $request->validate([
+            'nama_lengkap' => 'required|string|max:100',
+            'email' => 'required|email|unique:users,email',
+            'password' => 'required|min:8',
+            'role' => 'required|in:superadmin,admin,akademik,kaprodi',
+            'no_whatsapp' => 'nullable|string|max:20',
+        ]);
+
+        $user = User::create($validated);
+        
+        AuditService::log('create_user', 'User', $user->id, "Created user {$user->email}");
+
+        return $this->successResponse($user, 'User created successfully.', 201);
     }
 
-    /**
-     * Display the specified resource.
-     */
-    public function show(string $id): JsonResponse
+    public function update(Request $request, User $user): JsonResponse
     {
-        return response()->json([]);
+        $validated = $request->validate([
+            'nama_lengkap' => 'string|max:100',
+            'email' => 'email|unique:users,email,' . $user->id,
+            'password' => 'nullable|min:8',
+            'role' => 'in:superadmin,admin,akademik,kaprodi',
+            'no_whatsapp' => 'nullable|string|max:20',
+            'status' => 'in:active,inactive',
+        ]);
+
+        if (!empty($validated['password'])) {
+            $validated['password'] = $validated['password']; // Model handles hashing
+        } else {
+            unset($validated['password']);
+        }
+
+        $user->update($validated);
+
+        AuditService::log('update_user', 'User', $user->id, "Updated user {$user->email}");
+
+        return $this->successResponse($user, 'User updated successfully.');
     }
 
-    /**
-     * Update the specified resource in storage.
-     */
-    public function update(Request $request, string $id): JsonResponse
+    public function destroy(User $user): JsonResponse
     {
-        return response()->json([]);
-    }
+        if ($user->id === auth()->id()) {
+            return $this->errorResponse('Cannot delete yourself.', 400);
+        }
 
-    /**
-     * Remove the specified resource from storage.
-     */
-    public function destroy(string $id): JsonResponse
-    {
-        return response()->json([]);
+        $user->delete();
+        
+        AuditService::log('delete_user', 'User', $user->id, "Deleted user {$user->email}");
+
+        return $this->successResponse(null, 'User deleted successfully.');
     }
 }

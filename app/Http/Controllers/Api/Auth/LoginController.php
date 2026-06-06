@@ -3,71 +3,64 @@
 namespace App\Http\Controllers\Api\Auth;
 
 use App\Http\Controllers\Controller;
+use App\Models\User;
+use App\Traits\ApiResponse;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
-use App\Models\User;
-use Illuminate\Http\JsonResponse;
 
 class LoginController extends Controller
 {
-    public function index(Request $request): JsonResponse
-    {
-        return response()->json([
-            'app_name' => config('app.name'),
-            'user' => $request->user(),
-            'csrf_token' => csrf_token()
-        ]);
-    }
+    use ApiResponse;
 
     public function login(Request $request): JsonResponse
     {
-        $credentials = $request->validate([
+        $request->validate([
             'email' => 'required|email',
             'password' => 'required',
         ]);
 
-        $user = User::where('email', $credentials['email'])->first();
+        $user = User::where('email', $request->email)->first();
 
-        if ($user instanceof User && Hash::check($credentials['password'], $user->password_hash)) {
-            $token = $user->createToken('auth_token')->plainTextToken;
-            $user->update(['last_login' => now()]);
-
-            return response()->json([
-                'user' => $user,
-                'token' => $token,
-            ], 200);
+        $password = $request->input('password');
+        if (!$user || !is_string($password) || !Hash::check($password, $user->password)) {
+            return $this->errorResponse('Invalid credentials.', 401);
         }
 
-        return response()->json([
-            'message' => 'Email atau kata sandi salah.',
-        ], 401);
-    }
-
-    public function me(Request $request): JsonResponse
-    {
-        $user = $request->user();
-        if (!$user) {
-            return response()->json([
-                'message' => 'Tidak ada sesi login aktif.',
-                'csrf_token' => csrf_token()
-            ], 401);
+        if ($user->status !== 'active') {
+            return $this->errorResponse('Your account is inactive.', 403);
         }
 
-        return response()->json([
-            'user' => $user,
-            'csrf_token' => csrf_token()
-        ], 200);
+        $token = $user->createToken('auth_token')->plainTextToken;
+
+        $user->update(['last_login' => now()]);
+
+        return $this->successResponse([
+            'access_token' => $token,
+            'token_type' => 'Bearer',
+            'user' => [
+                'id' => $user->id,
+                'nama_lengkap' => $user->nama_lengkap,
+                'email' => $user->email,
+                'role' => $user->role,
+                'avatar_path' => $user->avatar_path,
+            ]
+        ], 'Login successful.');
     }
 
     public function logout(Request $request): JsonResponse
     {
         $user = $request->user();
-        if ($user instanceof User) {
-            /** @var \Laravel\Sanctum\PersonalAccessToken $token */
-            $token = $user->currentAccessToken();
-            $token->delete();
-        }
         
-        return response()->json(['message' => 'Logout berhasil.'], 200);
+        if ($user instanceof User) {
+            $user->currentAccessToken()->delete();
+        }
+
+        return $this->successResponse(null, 'Logged out successfully.');
+    }
+
+    public function me(Request $request): JsonResponse
+    {
+        return $this->successResponse($request->user());
     }
 }

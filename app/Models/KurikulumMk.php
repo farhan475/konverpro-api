@@ -2,15 +2,15 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class KurikulumMk extends Model
 {
-    protected $table = 'kurikulum_mk';
+    use HasUuids;
 
-    public $timestamps = false;
+    protected $table = 'kurikulum_mk';
 
     protected $fillable = [
         'id_prodi',
@@ -24,8 +24,6 @@ class KurikulumMk extends Model
     ];
 
     protected $casts = [
-        'sks' => 'integer',
-        'semester' => 'integer',
         'is_locked' => 'boolean',
     ];
 
@@ -33,17 +31,5 @@ class KurikulumMk extends Model
     public function prodi(): BelongsTo
     {
         return $this->belongsTo(Prodi::class, 'id_prodi');
-    }
-
-    /** @return HasMany<HasilKonversi, $this> */
-    public function hasilKonversi(): HasMany
-    {
-        return $this->hasMany(HasilKonversi::class, 'id_mk_tujuan');
-    }
-
-    /** @return HasMany<MkReferensiAi, $this> */
-    public function referensiAi(): HasMany
-    {
-        return $this->hasMany(MkReferensiAi::class, 'id_kurikulum_mk');
     }
 }
