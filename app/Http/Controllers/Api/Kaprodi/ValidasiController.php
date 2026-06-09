@@ -6,90 +6,145 @@ use App\Http\Controllers\Controller;
 use App\Models\HasilKonversi;
 use App\Models\Pendaftar;
 use App\Models\Prodi;
-use App\Traits\ApiResponse;
 use App\Services\AuditService;
 use App\Services\NotificationService;
+use App\Traits\ApiResponse;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 
 class ValidasiController extends Controller
 {
     use ApiResponse;
 
-    public function __construct(protected NotificationService $notifService) {}
+    public function __construct(
+        private NotificationService $notifService,
+        private AuditService $audit
+    ) {}
 
-    public function index(): JsonResponse
+    public function index(Request $request): JsonResponse
     {
-        $prodiIds = Prodi::where('id_kaprodi', auth()->id())->pluck('id');
-        
-        return $this->successResponse(
-            Pendaftar::whereIn('id_prodi', $prodiIds)
-                ->with('prodi')
-                ->latest()
-                ->paginate(20)
-        );
+        $prodiIds = Prodi::where('id_kaprodi', Auth::id())->pluck('id');
+
+        $data = Pendaftar::whereIn('id_prodi', $prodiIds)
+            ->with('prodi:id,nama_prodi,kode_prodi')
+            ->when($request->filled('status'), fn($q) => $q->where('status', $request->status))
+            ->orderByRaw("FIELD(status, 'Pending Kaprodi', 'Revisi', 'Approved', 'Rejected', 'Baru', 'AI Processing')")
+            ->latest()
+            ->paginate(20);
+
+        return $this->successResponse($data);
     }
 
     public function show(Pendaftar $pendaftar): JsonResponse
     {
-        $prodiIds = Prodi::where('id_kaprodi', auth()->id())->pluck('id');
+        $prodiIds = Prodi::where('id_kaprodi', Auth::id())->pluck('id');
+
         if (!$prodiIds->contains($pendaftar->id_prodi)) {
-            return $this->errorResponse('Unauthorized for this prodi.', 403);
+            return $this->unauthorizedResponse('Prodi ini bukan tanggung jawab Anda.');
         }
 
-        return $this->successResponse($pendaftar->load('prodi', 'transkripAsal', 'hasilKonversi.mkTujuan', 'hasilKonversi.transkripAsal'));
+        return $this->successResponse(
+            $pendaftar->load([
+                'prodi:id,nama_prodi,kode_prodi',
+                'transkripAsal',
+                'hasilKonversi.mkTujuan:id,nama_mk,sks,kode_mk',
+                'hasilKonversi.transkripAsal:id,nama_mk_asal,sks_asal,nilai_huruf_asal',
+                'createdBy:id,nama_lengkap',
+            ])
+        );
     }
 
-    public function updateHasil(\App\Http\Requests\ProcessValidasiRequest $request, HasilKonversi $hasilKonversi): JsonResponse
+    /**
+     * Override manual satu baris hasil konversi.
+     */
+    public function updateHasil(Request $request, HasilKonversi $hasilKonversi): JsonResponse
     {
-        $validated = $request->validated();
+        $validated = $request->validate([
+            'id_mk_tujuan'    => 'required|exists:kurikulum_mk,id',
+            'nilai_akhir_huruf'=> 'nullable|string|max:5',
+            'sks_diakui'      => 'required|integer|min:0',
+        ]);
 
-        $hasilKonversi->update(array_merge($validated, ['metode_pemetaan' => 'Manual Kaprodi']));
+        $hasilKonversi->update(array_merge($validated, [
+            'metode_pemetaan' => 'Manual Kaprodi',
+            'is_unmatched'    => false,
+        ]));
 
-        return $this->successResponse($hasilKonversi, 'Mapping updated manually.');
+        $this->audit->log(
+            'hasil_konversi.override',
+            'HasilKonversi',
+            $hasilKonversi->id,
+            "Manual override oleh kaprodi"
+        );
+
+        return $this->successResponse($hasilKonversi->load('mkTujuan:id,nama_mk,sks'), 'Mapping berhasil diperbarui.');
     }
 
     public function approve(Request $request, Pendaftar $pendaftar): JsonResponse
     {
+        if (!$this->ownedByKaprodi($pendaftar)) {
+            return $this->unauthorizedResponse();
+        }
+
+        $totalSks = $pendaftar->hasilKonversi()
+            ->where('is_unmatched', false)
+            ->sum('sks_diakui');
+
         $pendaftar->update([
-            'status' => 'Approved',
-            'total_sks_diakui' => $pendaftar->hasilKonversi()->where('is_unmatched', false)->sum('sks_diakui'),
-            'hash_ba_digital' => hash('sha256', $pendaftar->id . now())
+            'status'           => 'Approved',
+            'total_sks_diakui' => $totalSks,
+            'hash_ba_digital'  => hash('sha256', $pendaftar->id . now()->timestamp . Auth::id()),
         ]);
 
-        $this->notifService->send($pendaftar, 'Approved');
-        AuditService::log('approve_konversi', 'Pendaftar', $pendaftar->id, "Approved conversion for {$pendaftar->nama_lengkap}");
+        $this->notifService->send($pendaftar->load('prodi'), 'Approved');
+        $this->audit->log('konversi.approved', 'Pendaftar', $pendaftar->id, "Approved — {$pendaftar->nama_lengkap}");
 
-        return $this->successResponse(null, 'Conversion approved.');
+        return $this->successResponse(null, 'Permohonan disetujui.');
     }
 
     public function revisi(Request $request, Pendaftar $pendaftar): JsonResponse
     {
-        $request->validate(['catatan' => 'required|string']);
+        if (!$this->ownedByKaprodi($pendaftar)) {
+            return $this->unauthorizedResponse();
+        }
+
+        $request->validate(['catatan' => 'required|string|max:500']);
 
         $pendaftar->update([
-            'status' => 'Revisi',
-            'catatan_revisi' => $request->catatan
+            'status'          => 'Revisi',
+            'catatan_revisi'  => $request->catatan,
         ]);
 
-        $this->notifService->send($pendaftar, 'Revisi');
-        AuditService::log('revisi_konversi', 'Pendaftar', $pendaftar->id, "Requested revision for {$pendaftar->nama_lengkap}");
+        $this->notifService->send($pendaftar->load('prodi'), 'Revisi');
+        $this->audit->log('konversi.revisi', 'Pendaftar', $pendaftar->id, "Revisi — {$request->catatan}");
 
-        return $this->successResponse(null, 'Revision requested.');
+        return $this->successResponse(null, 'Permintaan revisi dikirim.');
     }
 
     public function reject(Request $request, Pendaftar $pendaftar): JsonResponse
     {
-        $request->validate(['alasan' => 'required|string']);
+        if (!$this->ownedByKaprodi($pendaftar)) {
+            return $this->unauthorizedResponse();
+        }
+
+        $request->validate(['alasan' => 'required|string|max:500']);
 
         $pendaftar->update([
-            'status' => 'Rejected',
-            'catatan_revisi' => $request->alasan
+            'status'         => 'Rejected',
+            'catatan_revisi' => $request->alasan,
         ]);
 
-        $this->notifService->send($pendaftar, 'Rejected');
-        AuditService::log('reject_konversi', 'Pendaftar', $pendaftar->id, "Rejected conversion for {$pendaftar->nama_lengkap}");
+        $this->notifService->send($pendaftar->load('prodi'), 'Rejected');
+        $this->audit->log('konversi.rejected', 'Pendaftar', $pendaftar->id, "Rejected — {$request->alasan}");
 
-        return $this->successResponse(null, 'Conversion rejected.');
+        return $this->successResponse(null, 'Permohonan ditolak.');
+    }
+
+    private function ownedByKaprodi(Pendaftar $pendaftar): bool
+    {
+        return Prodi::where('id_kaprodi', Auth::id())
+            ->where('id', $pendaftar->id_prodi)
+            ->exists();
     }
 }

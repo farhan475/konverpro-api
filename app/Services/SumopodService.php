@@ -9,72 +9,72 @@ use Illuminate\Support\Facades\Log;
 class SumopodService
 {
     /**
-     * @param string $mkAsal
-     * @param array<int, mixed> $kurikulumOptions
-     * @return array<string, mixed>|null
+     * Minta AI menentukan MK tujuan terbaik dari daftar kurikulum.
+     *
+     * @param  string  $mkAsal
+     * @param  array<int, \App\Models\KurikulumMk>  $kurikulumOptions
+     * @return array{id: string|null, reason: string}|null  null jika API gagal total
      */
     public function getAiMatch(string $mkAsal, array $kurikulumOptions): ?array
     {
-        $apiKeyRaw = PengaturanGlobal::where('setting_key', 'sumopod_api_key')->value('setting_value');
-        $baseUrlRaw = PengaturanGlobal::where('setting_key', 'sumopod_base_url')->value('setting_value');
-        $modelRaw = PengaturanGlobal::where('setting_key', 'sumopod_model')->value('setting_value');
-
-        $apiKey = is_string($apiKeyRaw) ? $apiKeyRaw : '';
-        $baseUrl = is_string($baseUrlRaw) ? $baseUrlRaw : 'https://api.openai.com/v1';
-        $model = is_string($modelRaw) ? $modelRaw : 'gpt-4o-mini';
+        // Baca via PengaturanGlobal::get() agar key sensitif didekripsi
+        $apiKey  = PengaturanGlobal::get('sumopod_api_key');
+        $baseUrl = PengaturanGlobal::get('sumopod_base_url', 'https://api.openai.com/v1');
+        $model   = PengaturanGlobal::get('sumopod_model', 'gpt-4o-mini');
 
         if (empty($apiKey)) {
-            Log::warning('Sumopod API Key not set.');
+            Log::warning('SumopodService: API key belum dikonfigurasi.');
             return null;
         }
 
-        $kurikulumList = collect($kurikulumOptions)->map(function (mixed $mk) {
-            if (is_array($mk)) {
-                $id = isset($mk['id']) ? strval($mk['id']) : '';
-                $nama = isset($mk['nama_mk']) ? strval($mk['nama_mk']) : '';
-                $sks = isset($mk['sks']) ? strval($mk['sks']) : '';
-            } elseif (is_object($mk)) {
-                $id = isset($mk->id) ? strval($mk->id) : '';
-                $nama = isset($mk->nama_mk) ? strval($mk->nama_mk) : '';
-                $sks = isset($mk->sks) ? strval($mk->sks) : '';
-            } else {
-                return "- unknown";
-            }
-            return "- {$id}: {$nama} ({$sks} SKS)";
-        })->implode("\n");
+        $kurikulumList = collect($kurikulumOptions)
+            ->map(fn($mk) => "- {$mk->id}: {$mk->nama_mk} ({$mk->sks} SKS)")
+            ->implode("\n");
 
-        $prompt = "Tentukan mata kuliah yang paling setara dari daftar kurikulum tujuan berikut untuk mata kuliah asal: \"{$mkAsal}\".\n\n"
+        $prompt = "Tentukan mata kuliah yang paling setara dari daftar kurikulum tujuan berikut "
+                . "untuk mata kuliah asal: \"{$mkAsal}\".\n\n"
                 . "Daftar Kurikulum Tujuan:\n{$kurikulumList}\n\n"
                 . "Aturan:\n"
-                . "1. Balas hanya dengan JSON format: {\"id\": \"UUID\", \"reason\": \"Alasan singkat\"}\n"
-                . "2. Jika tidak ada yang cocok, balas: {\"id\": null, \"reason\": \"Tidak ada kecocokan\"}\n"
-                . "3. Fokus pada kesamaan materi/substansi.";
+                . "1. Balas HANYA dengan JSON: {\"id\": \"UUID\", \"reason\": \"alasan singkat dalam Bahasa Indonesia\"}\n"
+                . "2. Jika tidak ada yang cocok: {\"id\": null, \"reason\": \"Tidak ada kecocokan\"}\n"
+                . "3. Fokus pada kesamaan materi/substansi, bukan nama.";
 
         try {
             $response = Http::withToken($apiKey)
+                ->timeout(15)
                 ->post("{$baseUrl}/chat/completions", [
-                    'model' => $model,
-                    'messages' => [
-                        ['role' => 'system', 'content' => 'You are an academic expert in course credit transfer.'],
-                        ['role' => 'user', 'content' => $prompt]
+                    'model'           => $model,
+                    'messages'        => [
+                        ['role' => 'system', 'content' => 'You are an academic expert in university course credit transfer.'],
+                        ['role' => 'user',   'content' => $prompt],
                     ],
-                    'response_format' => ['type' => 'json_object']
+                    'response_format' => ['type' => 'json_object'],
+                    'max_tokens'      => 150,
+                    'temperature'     => 0,
                 ]);
 
-            if ($response->successful()) {
-                $contentRaw = $response->json('choices.0.message.content');
-                $content = is_string($contentRaw) ? $contentRaw : '';
-                
-                /** @var array<string, mixed>|null $decoded */
-                $decoded = json_decode($content, true);
-                return $decoded;
+            if (!$response->successful()) {
+                Log::error('SumopodService: API error', ['status' => $response->status(), 'body' => $response->body()]);
+                return null;
             }
 
-            Log::error('Sumopod API Error: ' . $response->body());
-        } catch (\Exception $e) {
-            Log::error('Sumopod Exception: ' . $e->getMessage());
-        }
+            $content = $response->json('choices.0.message.content', '{}');
+            /** @var array{id?: string|null, reason?: string}|null $decoded */
+            $decoded = json_decode(is_string($content) ? $content : '{}', true);
 
-        return null;
+            if (!is_array($decoded) || !array_key_exists('id', $decoded)) {
+                Log::warning('SumopodService: Respons tidak valid', ['content' => $content]);
+                return null;
+            }
+
+            return [
+                'id'     => isset($decoded['id']) && is_string($decoded['id']) ? $decoded['id'] : null,
+                'reason' => isset($decoded['reason']) && is_string($decoded['reason']) ? $decoded['reason'] : '',
+            ];
+
+        } catch (\Exception $e) {
+            Log::error('SumopodService: Exception', ['message' => $e->getMessage()]);
+            return null;
+        }
     }
 }

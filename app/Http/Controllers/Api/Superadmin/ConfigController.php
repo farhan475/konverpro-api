@@ -4,8 +4,8 @@ namespace App\Http\Controllers\Api\Superadmin;
 
 use App\Http\Controllers\Controller;
 use App\Models\PengaturanGlobal;
-use App\Traits\ApiResponse;
 use App\Services\AuditService;
+use App\Traits\ApiResponse;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -13,26 +13,49 @@ class ConfigController extends Controller
 {
     use ApiResponse;
 
+    private const ALLOWED_KEYS = [
+        'nama_institusi', 'fuzzy_threshold_auto', 'fuzzy_threshold_sumopod',
+        'min_nilai_huruf_konversi', 'max_konversi_sks_persen', 'format_no_ba',
+        'sumopod_api_key', 'sumopod_model', 'sumopod_base_url',
+        'smtp_host', 'smtp_port', 'smtp_username', 'smtp_password', 'smtp_from_name',
+        'fonnte_api_key', 'notif_email_aktif', 'notif_wa_aktif',
+    ];
+
+    public function __construct(private AuditService $audit) {}
+
     public function index(): JsonResponse
     {
-        return $this->successResponse(
-            PengaturanGlobal::query()->pluck('setting_value', 'setting_key')
-        );
+        // Key sensitif ditampilkan sebagai placeholder agar tidak bocor ke frontend
+        $settings = collect(self::ALLOWED_KEYS)->mapWithKeys(function (string $key) {
+            $value = PengaturanGlobal::get($key);
+
+            if (PengaturanGlobal::isEncrypted($key)) {
+                $value = $value ? '••••••••' : null;
+            }
+
+            return [$key => $value];
+        });
+
+        return $this->successResponse($settings);
     }
 
     public function update(Request $request): JsonResponse
     {
-        $settings = $request->all();
+        $request->validate([
+            'settings'   => 'required|array',
+            'settings.*' => 'nullable|string|max:500',
+        ]);
 
-        foreach ($settings as $key => $value) {
-            PengaturanGlobal::updateOrCreate(
-                ['setting_key' => $key],
-                ['setting_value' => $value]
-            );
+        foreach ($request->settings as $key => $value) {
+            if (!in_array($key, self::ALLOWED_KEYS)) continue;
+            // Jika frontend kirim placeholder, skip — artinya user tidak ubah key ini
+            if ($value === '••••••••') continue;
+
+            PengaturanGlobal::set($key, $value ?? '');
         }
-        
-        AuditService::log('update_config', null, null, "Updated global settings");
 
-        return $this->successResponse(null, 'Settings updated successfully.');
+        $this->audit->log('config.updated');
+
+        return $this->successResponse(null, 'Konfigurasi berhasil disimpan.');
     }
 }

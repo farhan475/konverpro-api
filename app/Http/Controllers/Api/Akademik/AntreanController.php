@@ -5,50 +5,63 @@ namespace App\Http\Controllers\Api\Akademik;
 use App\Enums\StatusPendaftarEnum;
 use App\Http\Controllers\Controller;
 use App\Models\Pendaftar;
+use App\Services\AuditService;
 use App\Services\MatchingService;
 use App\Traits\ApiResponse;
-use App\Services\AuditService;
 use Illuminate\Http\JsonResponse;
 
 class AntreanController extends Controller
 {
     use ApiResponse;
 
-    public function __construct(protected MatchingService $matchingService) {}
+    public function __construct(
+        private MatchingService $matchingService,
+        private AuditService $audit
+    ) {}
 
     public function index(): JsonResponse
     {
-        return $this->successResponse(
-            Pendaftar::whereIn('status', [StatusPendaftarEnum::BARU, StatusPendaftarEnum::AI_PROCESSING])
-                ->with('prodi')
-                ->latest()
-                ->paginate(20)
-        );
+        $data = Pendaftar::whereIn('status', [
+                StatusPendaftarEnum::BARU,
+                StatusPendaftarEnum::AI_PROCESSING,
+            ])
+            ->with('prodi:id,nama_prodi,kode_prodi')
+            ->latest()
+            ->paginate(20);
+
+        return $this->successResponse($data);
     }
 
     public function show(Pendaftar $pendaftar): JsonResponse
     {
-        return $this->successResponse($pendaftar->load('prodi', 'transkripAsal'));
+        return $this->successResponse(
+            $pendaftar->load(['prodi:id,nama_prodi', 'transkripAsal'])
+        );
     }
 
     public function proses(Pendaftar $pendaftar): JsonResponse
     {
         if ($pendaftar->status !== StatusPendaftarEnum::BARU) {
-            return $this->errorResponse('Pendaftar is not in "Baru" status.', 400);
+            return $this->errorResponse(
+                'Hanya pendaftar dengan status "Baru" yang dapat diproses.',
+                422
+            );
         }
 
-        $pendaftar->update(['status' => StatusPendaftarEnum::AI_PROCESSING]);
-        
         try {
             $this->matchingService->processMatching($pendaftar);
-            $pendaftar->update(['status' => StatusPendaftarEnum::PENDING_KAPRODI]);
-            
-            AuditService::log('process_matching', 'Pendaftar', $pendaftar->id, "Processed matching for {$pendaftar->nama_lengkap}");
-            
-            return $this->successResponse(null, 'Matching process completed.');
+
+            $this->audit->log(
+                'matching.processed',
+                'Pendaftar',
+                $pendaftar->id,
+                "Matching selesai untuk {$pendaftar->nama_lengkap}"
+            );
+
+            return $this->successResponse(null, 'Proses matching selesai. Menunggu validasi kaprodi.');
+
         } catch (\Exception $e) {
-            $pendaftar->update(['status' => StatusPendaftarEnum::BARU]);
-            return $this->errorResponse('Matching failed: ' . $e->getMessage(), 500);
+            return $this->errorResponse('Proses matching gagal: ' . $e->getMessage(), 500);
         }
     }
 }

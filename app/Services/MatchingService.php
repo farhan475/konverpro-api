@@ -22,11 +22,8 @@ class MatchingService
         $transkrip = $pendaftar->transkripAsal;
         $kurikulum = KurikulumMk::where('id_prodi', $pendaftar->id_prodi)->get();
         
-        $thresholdAutoRaw = PengaturanGlobal::where('setting_key', 'fuzzy_threshold_auto')->value('setting_value');
-        $thresholdAiRaw = PengaturanGlobal::where('setting_key', 'fuzzy_threshold_sumopod')->value('setting_value');
-
-        $thresholdAuto = is_numeric($thresholdAutoRaw) ? floatval($thresholdAutoRaw) : 80.0;
-        $thresholdAi = is_numeric($thresholdAiRaw) ? floatval($thresholdAiRaw) : 50.0;
+        $thresholdAuto = (float) PengaturanGlobal::get('fuzzy_threshold_auto', '80');
+        $thresholdAi   = (float) PengaturanGlobal::get('fuzzy_threshold_sumopod', '50');
 
         foreach ($transkrip as $item) {
             $namaMkNormal = $this->normalizeWithKamus($item->nama_mk_asal);
