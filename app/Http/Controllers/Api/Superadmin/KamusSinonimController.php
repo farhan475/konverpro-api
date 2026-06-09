@@ -3,12 +3,12 @@
 namespace App\Http\Controllers\Api\Superadmin;
 
 use App\Http\Controllers\Controller;
-use App\Http\Requests\StoreKamusSinonimRequest;
 use App\Models\KamusSinonim;
-use App\Services\AuditService;
 use App\Traits\ApiResponse;
+use App\Services\AuditService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 
 class KamusSinonimController extends Controller
 {
@@ -16,45 +16,29 @@ class KamusSinonimController extends Controller
 
     public function __construct(private AuditService $audit) {}
 
-    public function index(Request $request): JsonResponse
+    public function index(): JsonResponse
     {
-        $data = KamusSinonim::with('createdBy:id,nama_lengkap')
-            ->when($request->filled('search'), function ($q) use ($request) {
-                $q->where('kata_utama', 'like', "%{$request->search}%")
-                  ->orWhere('sinonim', 'like', "%{$request->search}%");
-            })
-            ->orderBy('kata_utama')
-            ->paginate(30);
-
-        return $this->successResponse($data);
+        return $this->successResponse(KamusSinonim::with('creator')->latest()->get());
     }
 
-    public function store(StoreKamusSinonimRequest $request): JsonResponse
+    public function store(\App\Http\Requests\StoreKamusSinonimRequest $request): JsonResponse
     {
         $validated = $request->validated();
-        $validated['kata_utama'] = strtolower(trim($validated['kata_utama']));
-        $validated['sinonim']    = strtolower(trim($validated['sinonim']));
-        $validated['created_by'] = $request->user()->id;
 
-        $exists = KamusSinonim::where('kata_utama', $validated['kata_utama'])
-            ->where('sinonim', $validated['sinonim'])
-            ->exists();
-
-        if ($exists) {
-            return $this->errorResponse('Pasangan ini sudah ada di kamus.', 422);
-        }
-
+        $validated['created_by'] = Auth::id();
         $kamus = KamusSinonim::create($validated);
-        $this->audit->log('kamus.created', 'KamusSinonim', $kamus->id, "{$kamus->sinonim} → {$kamus->kata_utama}");
+        
+        $this->audit->log('create_kamus', 'KamusSinonim', $kamus->id, "Added synonym: {$kamus->sinonim} -> {$kamus->kata_utama}");
 
-        return $this->createdResponse($kamus, 'Entri kamus berhasil ditambahkan.');
+        return $this->successResponse($kamus, 'Kamus entry created successfully.', 201);
     }
 
     public function destroy(KamusSinonim $kamusSinonim): JsonResponse
     {
-        $this->audit->log('kamus.deleted', 'KamusSinonim', $kamusSinonim->id);
         $kamusSinonim->delete();
+        
+        $this->audit->log('delete_kamus', 'KamusSinonim', $kamusSinonim->id, "Deleted synonym entry");
 
-        return $this->successResponse(null, 'Entri kamus berhasil dihapus.');
+        return $this->successResponse(null, 'Kamus entry deleted successfully.');
     }
 }

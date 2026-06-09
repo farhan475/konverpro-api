@@ -14,25 +14,35 @@ class ConfigController extends Controller
     use ApiResponse;
 
     private const ALLOWED_KEYS = [
-        'nama_institusi', 'fuzzy_threshold_auto', 'fuzzy_threshold_sumopod',
-        'min_nilai_huruf_konversi', 'max_konversi_sks_persen', 'format_no_ba',
-        'sumopod_api_key', 'sumopod_model', 'sumopod_base_url',
-        'smtp_host', 'smtp_port', 'smtp_username', 'smtp_password', 'smtp_from_name',
-        'fonnte_api_key', 'notif_email_aktif', 'notif_wa_aktif',
+        'nama_institusi',
+        'fuzzy_threshold_auto',
+        'fuzzy_threshold_sumopod',
+        'min_nilai_huruf_konversi',
+        'max_konversi_sks_persen',
+        'format_no_ba',
+        'sumopod_api_key',
+        'sumopod_model',
+        'sumopod_base_url',
+        'smtp_host',
+        'smtp_port',
+        'smtp_username',
+        'smtp_password',
+        'smtp_from_name',
+        'fonnte_api_key',
+        'notif_email_aktif',
+        'notif_wa_aktif',
     ];
 
     public function __construct(private AuditService $audit) {}
 
     public function index(): JsonResponse
     {
-        // Key sensitif ditampilkan sebagai placeholder agar tidak bocor ke frontend
         $settings = collect(self::ALLOWED_KEYS)->mapWithKeys(function (string $key) {
             $value = PengaturanGlobal::get($key);
-
+            // Mask nilai sensitif agar tidak bocor ke frontend
             if (PengaturanGlobal::isEncrypted($key)) {
                 $value = $value ? '••••••••' : null;
             }
-
             return [$key => $value];
         });
 
@@ -48,9 +58,7 @@ class ConfigController extends Controller
 
         foreach ($request->settings as $key => $value) {
             if (!in_array($key, self::ALLOWED_KEYS)) continue;
-            // Jika frontend kirim placeholder, skip — artinya user tidak ubah key ini
             if ($value === '••••••••') continue;
-
             PengaturanGlobal::set($key, $value ?? '');
         }
 

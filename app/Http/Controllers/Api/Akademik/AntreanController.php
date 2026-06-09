@@ -21,15 +21,15 @@ class AntreanController extends Controller
 
     public function index(): JsonResponse
     {
-        $data = Pendaftar::whereIn('status', [
+        return $this->successResponse(
+            Pendaftar::whereIn('status', [
                 StatusPendaftarEnum::BARU,
                 StatusPendaftarEnum::AI_PROCESSING,
             ])
-            ->with('prodi:id,nama_prodi,kode_prodi')
-            ->latest()
-            ->paginate(20);
-
-        return $this->successResponse($data);
+                ->with('prodi:id,nama_prodi,kode_prodi')
+                ->latest()
+                ->paginate(20)
+        );
     }
 
     public function show(Pendaftar $pendaftar): JsonResponse
@@ -42,10 +42,7 @@ class AntreanController extends Controller
     public function proses(Pendaftar $pendaftar): JsonResponse
     {
         if ($pendaftar->status !== StatusPendaftarEnum::BARU) {
-            return $this->errorResponse(
-                'Hanya pendaftar dengan status "Baru" yang dapat diproses.',
-                422
-            );
+            return $this->errorResponse('Hanya pendaftar dengan status "Baru" yang dapat diproses.', 422);
         }
 
         try {
@@ -59,7 +56,6 @@ class AntreanController extends Controller
             );
 
             return $this->successResponse(null, 'Proses matching selesai. Menunggu validasi kaprodi.');
-
         } catch (\Exception $e) {
             return $this->errorResponse('Proses matching gagal: ' . $e->getMessage(), 500);
         }

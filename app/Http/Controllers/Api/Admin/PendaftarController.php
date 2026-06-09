@@ -3,87 +3,75 @@
 namespace App\Http\Controllers\Api\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Http\Requests\StorePendaftarRequest;
 use App\Models\Pendaftar;
-use App\Services\AuditService;
+use App\Models\User;
 use App\Services\ExcelParserService;
 use App\Traits\ApiResponse;
+use App\Services\AuditService;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 
 class PendaftarController extends Controller
 {
     use ApiResponse;
 
-    public function __construct(
-        private ExcelParserService $excelParser,
-        private AuditService $audit
-    ) {}
+    public function __construct(protected ExcelParserService $excelParser, private AuditService $audit) {}
 
-    public function index(Request $request): JsonResponse
+    public function index(): JsonResponse
     {
-        $data = Pendaftar::where('created_by', $request->user()->id)
-            ->with('prodi:id,nama_prodi,kode_prodi')
-            ->when($request->filled('status'), fn($q) => $q->where('status', $request->status))
-            ->when($request->filled('search'), function ($q) use ($request) {
-                $q->where('nama_lengkap', 'like', "%{$request->search}%")
-                  ->orWhere('nim_asal', 'like', "%{$request->search}%");
-            })
-            ->latest()
-            ->paginate(20);
-
-        return $this->successResponse($data);
+        return $this->successResponse(
+            Pendaftar::where('created_by', Auth::id())
+                ->with('prodi')
+                ->latest()
+                ->paginate(20)
+        );
     }
 
-    public function store(StorePendaftarRequest $request): JsonResponse
+    public function store(\App\Http\Requests\StorePendaftarRequest $request): JsonResponse
     {
         $fileExcel = $request->file('file_excel');
-        $filePdf   = $request->file('file_pdf');
+        $filePdf = $request->file('file_pdf');
 
-        $pathExcel = $fileExcel->store('pendaftar/excel', 'private');
-        $pathPdf   = $filePdf?->store('pendaftar/pdf', 'private');
-
-        if (!$pathExcel) {
-            return $this->errorResponse('Gagal menyimpan file Excel.', 500);
+        if (!$fileExcel) {
+            return $this->errorResponse('Excel file is required.', 400);
         }
 
-        try {
-            $fullPath   = Storage::disk('private')->path($pathExcel);
-            $pendaftars = $this->excelParser->parse($fullPath, (string) $request->user()->id);
+        $pathExcel = $fileExcel->store('pendaftar/excel', 'private');
+        $pathPdf = $filePdf ? $filePdf->store('pendaftar/pdf', 'private') : null;
 
+        if (!$pathExcel) {
+            return $this->errorResponse('Failed to store Excel file.', 500);
+        }
+
+        $fullPathExcel = Storage::disk('private')->path($pathExcel);
+        
+        try {
+            /** @var User $user */
+            $user = Auth::user();
+            $pendaftars = $this->excelParser->parse($fullPathExcel, (string) $user->id);
+            
             foreach ($pendaftars as $p) {
-                $p->update([
-                    'file_transkrip_excel_path' => $pathExcel,
-                    'file_transkrip_pdf_path'   => $pathPdf,
-                ]);
+                if ($pathPdf) {
+                    $p->update(['file_transkrip_pdf_path' => $pathPdf]);
+                }
+                $p->update(['file_transkrip_excel_path' => $pathExcel]);
             }
 
-            $this->audit->log(
-                'pendaftar.upload',
-                'Pendaftar',
-                null,
-                count($pendaftars) . ' mahasiswa diimport dari Excel'
-            );
+            $this->audit->log('upload_pendaftar', 'Pendaftar', null, "Uploaded Excel with " . count($pendaftars) . " students");
 
-            return $this->createdResponse(
-                ['jumlah' => count($pendaftars)],
-                count($pendaftars) . ' data pendaftar berhasil diimport.'
-            );
-
+            return $this->successResponse($pendaftars, count($pendaftars) . ' students processed successfully.');
         } catch (\Exception $e) {
-            return $this->errorResponse('Gagal memproses file Excel: ' . $e->getMessage(), 500);
+            return $this->errorResponse('Error parsing Excel: ' . $e->getMessage(), 500);
         }
     }
 
-    public function show(Request $request, Pendaftar $pendaftar): JsonResponse
+    public function show(Pendaftar $pendaftar): JsonResponse
     {
-        if ($pendaftar->created_by !== $request->user()->id) {
-            return $this->unauthorizedResponse();
+        if ($pendaftar->created_by !== Auth::id()) {
+            return $this->errorResponse('Unauthorized.', 403);
         }
 
-        return $this->successResponse(
-            $pendaftar->load(['prodi:id,nama_prodi', 'transkripAsal', 'hasilKonversi.mkTujuan'])
-        );
+        return $this->successResponse($pendaftar->load('prodi', 'transkripAsal', 'hasilKonversi.mkTujuan'));
     }
 }

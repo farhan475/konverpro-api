@@ -4,10 +4,12 @@ namespace App\Http\Controllers\Api\Superadmin;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
-use App\Services\AuditService;
 use App\Traits\ApiResponse;
+use App\Services\AuditService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Hash;
 
 class UserController extends Controller
 {
@@ -17,58 +19,60 @@ class UserController extends Controller
 
     public function index(): JsonResponse
     {
-        return $this->successResponse(
-            User::orderBy('nama_lengkap')->paginate(20)
-        );
+        return $this->successResponse(User::orderBy('nama_lengkap')->get());
     }
 
     public function store(Request $request): JsonResponse
     {
         $validated = $request->validate([
             'nama_lengkap' => 'required|string|max:100',
-            'email'        => 'required|email|unique:users,email',
-            'password'     => 'required|min:8',
-            'role'         => 'required|in:superadmin,admin,akademik,kaprodi',
-            'no_whatsapp'  => 'nullable|string|max:20',
-            'status'       => 'nullable|in:active,inactive',
+            'email' => 'required|email|unique:users,email',
+            'password' => 'required|min:8',
+            'role' => 'required|in:superadmin,admin,akademik,kaprodi',
+            'no_whatsapp' => 'nullable|string|max:20',
         ]);
 
         $user = User::create($validated);
-        $this->audit->log('user.created', 'User', $user->id, "Created user {$user->email}");
+        
+        $this->audit->log('create_user', 'User', $user->id, "Created user {$user->email}");
 
-        return $this->createdResponse($user, 'User berhasil dibuat.');
+        return $this->successResponse($user, 'User created successfully.', 201);
     }
 
     public function update(Request $request, User $user): JsonResponse
     {
         $validated = $request->validate([
-            'nama_lengkap' => 'sometimes|string|max:100',
-            'email'        => 'sometimes|email|unique:users,email,' . $user->id,
-            'password'     => 'nullable|min:8',
-            'role'         => 'sometimes|in:superadmin,admin,akademik,kaprodi',
-            'no_whatsapp'  => 'nullable|string|max:20',
-            'status'       => 'sometimes|in:active,inactive',
+            'nama_lengkap' => 'string|max:100',
+            'email' => 'email|unique:users,email,' . $user->id,
+            'password' => 'nullable|min:8',
+            'role' => 'in:superadmin,admin,akademik,kaprodi',
+            'no_whatsapp' => 'nullable|string|max:20',
+            'status' => 'in:active,inactive',
         ]);
 
-        if (empty($validated['password'])) {
+        if (!empty($validated['password'])) {
+            $validated['password'] = $validated['password']; // Model handles hashing
+        } else {
             unset($validated['password']);
         }
 
         $user->update($validated);
-        $this->audit->log('user.updated', 'User', $user->id, "Updated user {$user->email}");
 
-        return $this->successResponse($user, 'User berhasil diperbarui.');
+        $this->audit->log('update_user', 'User', $user->id, "Updated user {$user->email}");
+
+        return $this->successResponse($user, 'User updated successfully.');
     }
 
-    public function destroy(Request $request, User $user): JsonResponse
+    public function destroy(User $user): JsonResponse
     {
-        if ($user->id === $request->user()->id) {
-            return $this->errorResponse('Tidak dapat menghapus akun sendiri.', 422);
+        if ($user->id === Auth::id()) {
+            return $this->errorResponse('Cannot delete yourself.', 400);
         }
 
-        $this->audit->log('user.deleted', 'User', $user->id, "Deleted user {$user->email}");
         $user->delete();
+        
+        $this->audit->log('delete_user', 'User', $user->id, "Deleted user {$user->email}");
 
-        return $this->successResponse(null, 'User berhasil dihapus.');
+        return $this->successResponse(null, 'User deleted successfully.');
     }
 }

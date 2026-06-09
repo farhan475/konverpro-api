@@ -9,15 +9,12 @@ use Illuminate\Support\Facades\Log;
 class SumopodService
 {
     /**
-     * Minta AI menentukan MK tujuan terbaik dari daftar kurikulum.
-     *
      * @param  string  $mkAsal
      * @param  array<int, \App\Models\KurikulumMk>  $kurikulumOptions
-     * @return array{id: string|null, reason: string}|null  null jika API gagal total
+     * @return array{id: string|null, reason: string}|null
      */
     public function getAiMatch(string $mkAsal, array $kurikulumOptions): ?array
     {
-        // Baca via PengaturanGlobal::get() agar key sensitif didekripsi
         $apiKey  = PengaturanGlobal::get('sumopod_api_key');
         $baseUrl = PengaturanGlobal::get('sumopod_base_url', 'https://api.openai.com/v1');
         $model   = PengaturanGlobal::get('sumopod_model', 'gpt-4o-mini');
@@ -31,13 +28,10 @@ class SumopodService
             ->map(fn($mk) => "- {$mk->id}: {$mk->nama_mk} ({$mk->sks} SKS)")
             ->implode("\n");
 
-        $prompt = "Tentukan mata kuliah yang paling setara dari daftar kurikulum tujuan berikut "
-                . "untuk mata kuliah asal: \"{$mkAsal}\".\n\n"
-                . "Daftar Kurikulum Tujuan:\n{$kurikulumList}\n\n"
-                . "Aturan:\n"
-                . "1. Balas HANYA dengan JSON: {\"id\": \"UUID\", \"reason\": \"alasan singkat dalam Bahasa Indonesia\"}\n"
-                . "2. Jika tidak ada yang cocok: {\"id\": null, \"reason\": \"Tidak ada kecocokan\"}\n"
-                . "3. Fokus pada kesamaan materi/substansi, bukan nama.";
+        $prompt = "Tentukan mata kuliah yang paling setara dari daftar berikut untuk mata kuliah: \"{$mkAsal}\".\n\n"
+            . "Daftar:\n{$kurikulumList}\n\n"
+            . "Balas HANYA JSON: {\"id\": \"UUID atau null\", \"reason\": \"alasan singkat Bahasa Indonesia\"}\n"
+            . "Jika tidak ada yang cocok: {\"id\": null, \"reason\": \"Tidak ada kecocokan\"}";
 
         try {
             $response = Http::withToken($apiKey)
@@ -54,12 +48,11 @@ class SumopodService
                 ]);
 
             if (!$response->successful()) {
-                Log::error('SumopodService: API error', ['status' => $response->status(), 'body' => $response->body()]);
+                Log::error('SumopodService: API error', ['status' => $response->status()]);
                 return null;
             }
 
             $content = $response->json('choices.0.message.content', '{}');
-            /** @var array{id?: string|null, reason?: string}|null $decoded */
             $decoded = json_decode(is_string($content) ? $content : '{}', true);
 
             if (!is_array($decoded) || !array_key_exists('id', $decoded)) {
@@ -71,7 +64,6 @@ class SumopodService
                 'id'     => isset($decoded['id']) && is_string($decoded['id']) ? $decoded['id'] : null,
                 'reason' => isset($decoded['reason']) && is_string($decoded['reason']) ? $decoded['reason'] : '',
             ];
-
         } catch (\Exception $e) {
             Log::error('SumopodService: Exception', ['message' => $e->getMessage()]);
             return null;
