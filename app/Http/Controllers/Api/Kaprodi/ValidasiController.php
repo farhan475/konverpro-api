@@ -9,7 +9,7 @@ use App\Models\Pendaftar;
 use App\Models\Prodi;
 use App\Traits\ApiResponse;
 use App\Services\AuditService;
-use App\Services\NotificationService;
+use App\Services\NotifikasiService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -18,7 +18,7 @@ class ValidasiController extends Controller
 {
     use ApiResponse;
 
-    public function __construct(protected NotificationService $notifService, private AuditService $audit) {}
+    public function __construct(protected NotifikasiService $notifService, private AuditService $audit) {}
 
     public function index(): JsonResponse
     {
@@ -46,7 +46,17 @@ class ValidasiController extends Controller
     {
         $validated = $request->validated();
 
-        $hasilKonversi->update(array_merge($validated, ['metode_pemetaan' => 'Manual Kaprodi']));
+        if (isset($validated['id_mk_tujuan']) && !isset($validated['sks_diakui'])) {
+            $mkTujuan = \App\Models\KurikulumMk::find($validated['id_mk_tujuan']);
+            if ($mkTujuan) {
+                $validated['sks_diakui'] = min($hasilKonversi->transkripAsal->sks_asal, $mkTujuan->sks);
+            }
+        }
+
+        $hasilKonversi->update(array_merge($validated, [
+            'metode_pemetaan' => 'Manual Kaprodi',
+            'is_unmatched' => isset($validated['id_mk_tujuan']) ? false : $hasilKonversi->is_unmatched
+        ]));
 
         return $this->successResponse($hasilKonversi, 'Mapping updated manually.');
     }

@@ -22,8 +22,12 @@ Route::prefix('auth')->group(function () {
     });
 });
 
-// Protected Routes
-Route::middleware(['auth:sanctum'])->group(function () {
+    // Protected Routes
+    Route::middleware(['auth:sanctum'])->group(function () {
+
+    // Files
+    Route::get('files/excel/{pendaftar}', [\App\Http\Controllers\Api\FileController::class, 'showExcel']);
+    Route::get('files/pdf/{pendaftar}', [\App\Http\Controllers\Api\FileController::class, 'showPdf']);
 
     // Superadmin
     Route::middleware('role:superadmin')->prefix('superadmin')->group(function () {
@@ -45,13 +49,17 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::get('pendaftar/{pendaftar}', [Admin\PendaftarController::class, 'show']);
     });
 
+    // Akademik & Kaprodi shared kurikulum access
+    Route::middleware('role:akademik,kaprodi')->prefix('akademik')->group(function () {
+        Route::apiResource('kurikulum', Akademik\KurikulumController::class);
+    });
+
     // Akademik
     Route::middleware('role:akademik')->prefix('akademik')->group(function () {
         Route::get('dashboard', [Akademik\DashboardController::class, 'index']);
         Route::get('antrean', [Akademik\AntreanController::class, 'index']);
         Route::get('antrean/{pendaftar}', [Akademik\AntreanController::class, 'show']);
         Route::post('antrean/{pendaftar}/proses', [Akademik\AntreanController::class, 'proses']);
-        Route::apiResource('kurikulum', Akademik\KurikulumController::class);
         Route::apiResource('kamus-sinonim', Akademik\KamusSinonimController::class)->only(['index', 'store', 'destroy']);
     });
 

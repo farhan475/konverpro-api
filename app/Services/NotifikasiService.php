@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 
-class NotificationService
+class NotifikasiService
 {
     public function send(Pendaftar $pendaftar, string $status): void
     {
@@ -19,11 +19,20 @@ class NotificationService
         $emailAktif = PengaturanGlobal::get('notif_email_aktif', 'false');
         $waAktif    = PengaturanGlobal::get('notif_wa_aktif', 'false');
 
-        if ($emailAktif === 'true' && $pendaftar->email) {
-            $this->sendEmail($pendaftar->email, $template['subject'], $template['body']);
+        if ($emailAktif === 'true') {
+            if ($status === 'Revisi') {
+                // Notifikasi ke Admin (created_by)
+                $pendaftar->loadMissing('creator');
+                if ($pendaftar->creator && $pendaftar->creator->email) {
+                    $this->sendEmail($pendaftar->creator->email, $template['subject'], $template['body']);
+                }
+            } elseif ($pendaftar->email) {
+                // Notifikasi ke Mahasiswa
+                $this->sendEmail($pendaftar->email, $template['subject'], $template['body']);
+            }
         }
 
-        if ($waAktif === 'true' && $pendaftar->no_whatsapp) {
+        if ($waAktif === 'true' && $pendaftar->no_whatsapp && $status !== 'Revisi') {
             $fonnteKey = PengaturanGlobal::get('fonnte_api_key');
             if ($fonnteKey) {
                 $this->sendFonnte($pendaftar->no_whatsapp, $template['wa'], $fonnteKey);
@@ -82,10 +91,11 @@ class NotificationService
                 'wa'      => "Halo {$nama}, mohon maaf permohonan konversi SKS Anda ditolak. Alasan: {$catatan}. - KonverPro",
             ],
             'Revisi' => [
-                'subject' => 'Permintaan Revisi Konversi SKS',
-                'body'    => "Halo {$nama},\n\nTerdapat permintaan revisi untuk berkas konversi Anda.\nCatatan: {$catatan}\n\n"
-                           . "Silakan hubungi admin yang menginput data Anda.",
-                'wa'      => "Halo {$nama}, berkas konversi Anda perlu direvisi. Catatan: {$catatan}. - KonverPro",
+                'subject' => 'Permintaan Revisi Konversi SKS - ' . $nama,
+                'body'    => "Halo Admin,\n\nTerdapat permintaan revisi dari Kaprodi untuk berkas konversi mahasiswa: {$nama}.\n"
+                           . "Catatan Revisi: {$catatan}\n\n"
+                           . "Silakan login ke sistem untuk melakukan perbaikan data.",
+                'wa'      => "", // Revisi tidak kirim WA ke mahasiswa
             ],
             default => null,
         };
