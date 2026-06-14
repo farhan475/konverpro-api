@@ -25,9 +25,13 @@ Route::prefix('auth')->group(function () {
     // Protected Routes
     Route::middleware(['auth:sanctum'])->group(function () {
 
+    // Referensi (Shared)
+    Route::get('referensi/prodi', [\App\Http\Controllers\Api\Superadmin\ProdiController::class, 'index']);
+
     // Files
     Route::get('files/excel/{pendaftar}', [\App\Http\Controllers\Api\FileController::class, 'showExcel']);
     Route::get('files/pdf/{pendaftar}', [\App\Http\Controllers\Api\FileController::class, 'showPdf']);
+    Route::get('files/signature', [\App\Http\Controllers\Api\FileController::class, 'showSignature']);
 
     // Superadmin
     Route::middleware('role:superadmin')->prefix('superadmin')->group(function () {

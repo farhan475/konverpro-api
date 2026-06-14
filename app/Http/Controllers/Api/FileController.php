@@ -36,4 +36,17 @@ class FileController extends Controller
             'Transkrip_Original_' . $pendaftar->nama_lengkap . '.pdf'
         );
     }
+
+    public function showSignature(): StreamedResponse
+    {
+        $user = auth()->user();
+        if (!$user || !$user->tanda_tangan_path) {
+            abort(404, 'Signature not found.');
+        }
+
+        return Storage::disk('private')->download(
+            $user->tanda_tangan_path,
+            'Tanda_Tangan_' . $user->nama_lengkap . '.png'
+        );
+    }
 }

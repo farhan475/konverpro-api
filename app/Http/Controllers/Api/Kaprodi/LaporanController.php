@@ -25,6 +25,13 @@ class LaporanController extends Controller
             'total_sks' => Pendaftar::whereIn('id_prodi', $prodiIds)
                 ->where('status', 'Approved')
                 ->sum('total_sks_diakui'),
+            'total_pendaftar' => Pendaftar::whereIn('id_prodi', $prodiIds)->count(),
+            'recent_approved' => Pendaftar::whereIn('id_prodi', $prodiIds)
+                ->where('status', 'Approved')
+                ->with('prodi')
+                ->latest()
+                ->limit(20)
+                ->get(),
         ];
 
         return $this->successResponse($stats);
