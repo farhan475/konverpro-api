@@ -22,16 +22,23 @@ class MatchingService
     public function processMatching(Pendaftar $pendaftar): void
     {
         $thresholdAuto = (float) PengaturanGlobal::get('fuzzy_threshold_auto', '80');
-        $thresholdAi   = (float) PengaturanGlobal::get('fuzzy_threshold_sumopod', '50');
+        $thresholdAi = (float) PengaturanGlobal::get('fuzzy_threshold_sumopod', '50');
 
         $transkrip = $pendaftar->transkripAsal;
         $kurikulum = KurikulumMk::where('id_prodi', $pendaftar->id_prodi)->get();
+
+        if ($transkrip->isEmpty()) {
+            throw new \RuntimeException('Data transkrip asal kosong.');
+        }
+
+        if ($kurikulum->isEmpty()) {
+            throw new \RuntimeException('Data kurikulum prodi tujuan kosong.');
+        }
 
         DB::beginTransaction();
         try {
             $pendaftar->update(['status' => StatusPendaftarEnum::AI_PROCESSING]);
 
-            // Hapus hasil lama jika reprocess
             HasilKonversi::where('id_pendaftar', $pendaftar->id)->delete();
 
             foreach ($transkrip as $item) {
@@ -41,7 +48,9 @@ class MatchingService
                 $bestScore = 0.0;
 
                 foreach ($kurikulum as $mkTujuan) {
-                    $score = $this->fuzzyMatcher->getScore($namaNormal, $mkTujuan->nama_mk);
+                    $namaTujuanNormal = $this->normalizeWithKamus($mkTujuan->nama_mk);
+                    $score = $this->fuzzyMatcher->getScore($namaNormal, $namaTujuanNormal);
+
                     if ($score > $bestScore) {
                         $bestScore = $score;
                         $bestMatch = $mkTujuan;
@@ -70,12 +79,12 @@ class MatchingService
 
             $pendaftar->update(['status' => StatusPendaftarEnum::PENDING_KAPRODI]);
             DB::commit();
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             DB::rollBack();
             $pendaftar->update(['status' => StatusPendaftarEnum::BARU]);
             Log::error('MatchingService failed', [
                 'pendaftar_id' => $pendaftar->id,
-                'error'        => $e->getMessage(),
+                'error' => $e->getMessage(),
             ]);
             throw $e;
         }
@@ -83,17 +92,24 @@ class MatchingService
 
     protected function normalizeWithKamus(string $namaMk): string
     {
-        $normalized = strtolower(trim($namaMk));
-
+        $normalized = $this->normalizeText($namaMk);
         $kamus = KamusSinonim::where('is_active', true)->get();
 
-        foreach ($kamus as $k) {
-            if (strtolower($k->sinonim) === $normalized) {
-                return strtolower($k->kata_utama);
+        foreach ($kamus as $item) {
+            $kataUtama = $this->normalizeText($item->kata_utama);
+            $sinonim = $this->normalizeText($item->sinonim);
+
+            if ($normalized === $sinonim || $normalized === $kataUtama) {
+                return $kataUtama;
             }
         }
 
         return $normalized;
+    }
+
+    protected function normalizeText(string $text): string
+    {
+        return strtolower(trim((string) preg_replace('/\s+/', ' ', $text)));
     }
 
     protected function saveMatch(
@@ -105,27 +121,27 @@ class MatchingService
         ?string $reason = null
     ): void {
         HasilKonversi::create([
-            'id_pendaftar'      => $pendaftar->id,
+            'id_pendaftar' => $pendaftar->id,
             'id_transkrip_asal' => $asal->id,
-            'id_mk_tujuan'      => $tujuan->id,
+            'id_mk_tujuan' => $tujuan->id,
             'nilai_akhir_huruf' => $asal->nilai_huruf_asal,
-            'sks_diakui'        => min($asal->sks_asal, $tujuan->sks),
-            'metode_pemetaan'   => $metode,
-            'match_score'       => $score,
-            'match_reason'      => $reason ?? "Matched via {$metode}",
-            'is_unmatched'      => false,
+            'sks_diakui' => min($asal->sks_asal, $tujuan->sks),
+            'metode_pemetaan' => $metode,
+            'match_score' => $score,
+            'match_reason' => $reason ?? "Matched via {$metode}",
+            'is_unmatched' => false,
         ]);
     }
 
     protected function saveUnmatched(Pendaftar $pendaftar, TranskripAsal $asal): void
     {
         HasilKonversi::create([
-            'id_pendaftar'      => $pendaftar->id,
+            'id_pendaftar' => $pendaftar->id,
             'id_transkrip_asal' => $asal->id,
-            'id_mk_tujuan'      => null,
-            'sks_diakui'        => 0,
-            'is_unmatched'      => true,
-            'match_reason'      => 'Tidak ditemukan padanan yang cukup.',
+            'id_mk_tujuan' => null,
+            'sks_diakui' => 0,
+            'is_unmatched' => true,
+            'match_reason' => 'Tidak ditemukan padanan yang cukup.',
         ]);
     }
 }
