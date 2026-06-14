@@ -24,11 +24,11 @@ class LoginController extends Controller
 
         $password = $request->input('password');
         if (!$user || !is_string($password) || !Hash::check($password, $user->password)) {
-            return $this->errorResponse('Invalid credentials.', 401);
+            return $this->errorResponse('Email atau password salah.', 401);
         }
 
         if ($user->status !== 'active') {
-            return $this->errorResponse('Your account is inactive.', 403);
+            return $this->errorResponse('Akun Anda tidak aktif.', 403);
         }
 
         $token = $user->createToken('auth_token')->plainTextToken;
@@ -37,30 +37,48 @@ class LoginController extends Controller
 
         return $this->successResponse([
             'access_token' => $token,
+            'token' => $token,
             'token_type' => 'Bearer',
             'user' => [
                 'id' => $user->id,
                 'nama_lengkap' => $user->nama_lengkap,
                 'email' => $user->email,
-                'role' => $user->role,
+                'role' => $user->role->value,
                 'avatar_path' => $user->avatar_path,
-            ]
-        ], 'Login successful.');
+            ],
+        ], 'Login berhasil.');
     }
 
     public function logout(Request $request): JsonResponse
     {
         $user = $request->user();
-        
+
         if ($user instanceof User) {
-            $user->currentAccessToken()->delete();
+            $token = $user->currentAccessToken();
+            if ($token) {
+                $token->delete();
+            }
         }
 
-        return $this->successResponse(null, 'Logged out successfully.');
+        return $this->successResponse(null, 'Logout berhasil.');
     }
 
     public function me(Request $request): JsonResponse
     {
-        return $this->successResponse($request->user());
+        $user = $request->user();
+
+        if (!$user instanceof User) {
+            return $this->errorResponse('Unauthenticated.', 401);
+        }
+
+        return $this->successResponse([
+            'id' => $user->id,
+            'nama_lengkap' => $user->nama_lengkap,
+            'email' => $user->email,
+            'role' => $user->role->value,
+            'avatar_path' => $user->avatar_path,
+            'no_whatsapp' => $user->no_whatsapp,
+            'status' => $user->status,
+        ]);
     }
 }
