@@ -37,11 +37,14 @@ Route::prefix('auth')->group(function () {
     Route::middleware('role:superadmin')->prefix('superadmin')->group(function () {
         Route::get('dashboard', [Superadmin\DashboardController::class, 'index']);
         Route::apiResource('users', Superadmin\UserController::class);
+        Route::get('prodi/{prodi}/settings', [Superadmin\ProdiController::class, 'getSettings']);
+        Route::put('prodi/{prodi}/settings', [Superadmin\ProdiController::class, 'updateSettings']);
         Route::apiResource('prodi', Superadmin\ProdiController::class);
         Route::apiResource('kamus-sinonim', Superadmin\KamusSinonimController::class)->only(['index', 'store', 'destroy']);
         Route::get('config', [Superadmin\ConfigController::class, 'index']);
         Route::put('config', [Superadmin\ConfigController::class, 'update']);
         Route::get('audit', [Superadmin\AuditController::class, 'index']);
+        Route::get('laporan', [Superadmin\LaporanController::class, 'index']);
     });
 
     // Admin
@@ -63,6 +66,7 @@ Route::prefix('auth')->group(function () {
         Route::get('dashboard', [Akademik\DashboardController::class, 'index']);
         Route::get('antrean', [Akademik\AntreanController::class, 'index']);
         Route::get('antrean/{pendaftar}', [Akademik\AntreanController::class, 'show']);
+        Route::put('antrean/{pendaftar}', [Akademik\AntreanController::class, 'update']);
         Route::post('antrean/{pendaftar}/proses', [Akademik\AntreanController::class, 'proses']);
         Route::apiResource('kamus-sinonim', Akademik\KamusSinonimController::class)->only(['index', 'store', 'destroy']);
     });
@@ -71,11 +75,13 @@ Route::prefix('auth')->group(function () {
     Route::middleware('role:kaprodi')->prefix('kaprodi')->group(function () {
         Route::get('dashboard', [Kaprodi\DashboardController::class, 'index']);
         Route::get('validasi', [Kaprodi\ValidasiController::class, 'index']);
+        Route::post('validasi/bulk-approve', [Kaprodi\ValidasiController::class, 'bulkApprove']);
         Route::get('validasi/{pendaftar}', [Kaprodi\ValidasiController::class, 'show']);
         Route::put('hasil-konversi/{hasilKonversi}', [Kaprodi\ValidasiController::class, 'updateHasil']);
         Route::post('validasi/{pendaftar}/approve', [Kaprodi\ValidasiController::class, 'approve']);
         Route::post('validasi/{pendaftar}/revisi', [Kaprodi\ValidasiController::class, 'revisi']);
         Route::post('validasi/{pendaftar}/reject', [Kaprodi\ValidasiController::class, 'reject']);
+        Route::get('validasi/{pendaftar}/download-ba', [Kaprodi\DocumentController::class, 'downloadBa']);
         Route::get('laporan', [Kaprodi\LaporanController::class, 'index']);
         Route::post('tanda-tangan', [Kaprodi\TandaTanganController::class, 'store']);
         Route::delete('tanda-tangan', [Kaprodi\TandaTanganController::class, 'destroy']);

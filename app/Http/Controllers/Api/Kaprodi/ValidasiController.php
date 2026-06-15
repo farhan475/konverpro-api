@@ -39,7 +39,13 @@ class ValidasiController extends Controller
             return $this->errorResponse('Unauthorized for this prodi.', 403);
         }
 
-        return $this->successResponse($pendaftar->load('prodi', 'transkripAsal', 'hasilKonversi.mkTujuan', 'hasilKonversi.transkripAsal'));
+        return $this->successResponse($pendaftar->load([
+            'prodi.pengaturan', 
+            'prodi.kurikulumMk',
+            'transkripAsal', 
+            'hasilKonversi.mkTujuan', 
+            'hasilKonversi.transkripAsal'
+        ]));
     }
 
     public function updateHasil(ProcessValidasiRequest $request, HasilKonversi $hasilKonversi): JsonResponse
@@ -63,17 +69,66 @@ class ValidasiController extends Controller
 
     public function approve(Request $request, Pendaftar $pendaftar): JsonResponse
     {
+        $totalSksDiakui = $pendaftar->hasilKonversi()->where('is_unmatched', false)->sum('sks_diakui');
+        $pendaftar->loadMissing('prodi.pengaturan', 'prodi.kurikulumMk');
+        
+        $pengaturan = $pendaftar->prodi->pengaturan;
+        if ($pengaturan) {
+            $totalSksKurikulum = $pendaftar->prodi->kurikulumMk->sum('sks');
+            if ($totalSksKurikulum > 0) {
+                $maxSks = ($pengaturan->max_konversi_sks_persen / 100) * $totalSksKurikulum;
+                if ($totalSksDiakui > $maxSks) {
+                    return $this->errorResponse("Total SKS diakui (" . round($totalSksDiakui) . ") melebihi batas maksimal konversi prodi (" . round($maxSks) . " SKS / {$pengaturan->max_konversi_sks_persen}%).", 422);
+                }
+            }
+        }
+
         $pendaftar->update([
             'status' => 'Approved',
-            'total_sks_diakui' => $pendaftar->hasilKonversi()->where('is_unmatched', false)->sum('sks_diakui'),
+            'total_sks_diakui' => $totalSksDiakui,
             'hash_ba_digital' => hash('sha256', $pendaftar->id . now())
         ]);
 
-        $pendaftar->loadMissing('prodi');
         $this->notifService->send($pendaftar, 'Approved');
         $this->audit->log('approve_konversi', 'Pendaftar', $pendaftar->id, "Approved conversion for {$pendaftar->nama_lengkap}");
 
         return $this->successResponse(null, 'Conversion approved.');
+    }
+
+    public function bulkApprove(Request $request): JsonResponse
+    {
+        $request->validate([
+            'ids' => 'required|array',
+            'ids.*' => 'exists:pendaftar,id'
+        ]);
+
+        $ids = $request->ids;
+        $count = 0;
+
+        DB::beginTransaction();
+        try {
+            foreach ($ids as $id) {
+                $pendaftar = Pendaftar::find($id);
+                if ($pendaftar && $pendaftar->status === 'Pending Kaprodi') {
+                    $totalSksDiakui = $pendaftar->hasilKonversi()->where('is_unmatched', false)->sum('sks_diakui');
+                    
+                    $pendaftar->update([
+                        'status' => 'Approved',
+                        'total_sks_diakui' => $totalSksDiakui,
+                        'hash_ba_digital' => hash('sha256', $pendaftar->id . now())
+                    ]);
+
+                    $this->notifService->send($pendaftar, 'Approved');
+                    $this->audit->log('approve_konversi', 'Pendaftar', $pendaftar->id, "Approved conversion (bulk) for {$pendaftar->nama_lengkap}");
+                    $count++;
+                }
+            }
+            DB::commit();
+            return $this->successResponse(null, "{$count} permohonan berhasil disetujui.");
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return $this->errorResponse('Gagal melakukan persetujuan massal: ' . $e->getMessage(), 500);
+        }
     }
 
     public function revisi(Request $request, Pendaftar $pendaftar): JsonResponse

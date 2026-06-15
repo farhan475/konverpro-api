@@ -60,4 +60,25 @@ class ProdiController extends Controller
 
         return $this->successResponse(null, 'Prodi deleted successfully.');
     }
+
+    public function getSettings(Prodi $prodi): JsonResponse
+    {
+        return $this->successResponse($prodi->pengaturan()->firstOrCreate(['id_prodi' => $prodi->id]));
+    }
+
+    public function updateSettings(Request $request, Prodi $prodi): JsonResponse
+    {
+        $validated = $request->validate([
+            'min_nilai_huruf' => 'string|max:2',
+            'max_konversi_sks_persen' => 'integer|min:0|max:100',
+            'format_no_ba' => 'string|max:100',
+            'metode_pengakuan' => 'in:direct,scale',
+        ]);
+
+        $settings = $prodi->pengaturan()->updateOrCreate(['id_prodi' => $prodi->id], $validated);
+        
+        $this->audit->log('update_prodi_settings', 'Prodi', $prodi->id, "Updated settings for prodi {$prodi->nama_prodi}");
+
+        return $this->successResponse($settings, 'Prodi settings updated successfully.');
+    }
 }

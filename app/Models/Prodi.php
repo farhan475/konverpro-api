@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Prodi extends Model
 {
@@ -21,6 +22,11 @@ class Prodi extends Model
     ];
 
     /** @return BelongsTo<User, $this> */
+    public function pengaturan(): HasOne
+    {
+        return $this->hasOne(PengaturanProdi::class, 'id_prodi');
+    }
+
     public function kaprodi(): BelongsTo
     {
         return $this->belongsTo(User::class, 'id_kaprodi');
