@@ -40,7 +40,7 @@ Route::prefix('auth')->group(function () {
         Route::get('prodi/{prodi}/settings', [Superadmin\ProdiController::class, 'getSettings']);
         Route::put('prodi/{prodi}/settings', [Superadmin\ProdiController::class, 'updateSettings']);
         Route::apiResource('prodi', Superadmin\ProdiController::class);
-        Route::apiResource('kamus-sinonim', Superadmin\KamusSinonimController::class)->only(['index', 'store', 'destroy']);
+        Route::apiResource('kamus-sinonim', Superadmin\KamusSinonimController::class)->only(['index', 'store', 'update', 'destroy']);
         Route::get('config', [Superadmin\ConfigController::class, 'index']);
         Route::put('config', [Superadmin\ConfigController::class, 'update']);
         Route::get('audit', [Superadmin\AuditController::class, 'index']);
@@ -68,7 +68,8 @@ Route::prefix('auth')->group(function () {
         Route::get('antrean/{pendaftar}', [Akademik\AntreanController::class, 'show']);
         Route::put('antrean/{pendaftar}', [Akademik\AntreanController::class, 'update']);
         Route::post('antrean/{pendaftar}/proses', [Akademik\AntreanController::class, 'proses']);
-        Route::apiResource('kamus-sinonim', Akademik\KamusSinonimController::class)->only(['index', 'store', 'destroy']);
+        Route::post('antrean/{pendaftar}/confirm', [Akademik\AntreanController::class, 'confirmToKaprodi']);
+        Route::apiResource('kamus-sinonim', Akademik\KamusSinonimController::class)->only(['index', 'store', 'update', 'destroy']);
     });
 
     // Kaprodi

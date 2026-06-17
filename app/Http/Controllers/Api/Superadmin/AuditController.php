@@ -17,7 +17,7 @@ class AuditController extends Controller
         $query = AuditLog::with('user')->latest();
 
         if ($request->filled('search')) {
-            $search = $request->search;
+            $search = (string) $request->input('search');
             $query->where(function($q) use ($search) {
                 $q->where('action', 'like', "%{$search}%")
                   ->orWhere('details', 'like', "%{$search}%")
@@ -28,7 +28,7 @@ class AuditController extends Controller
         }
 
         if ($request->filled('action')) {
-            $query->where('action', $request->action);
+            $query->where('action', (string) $request->input('action'));
         }
 
         return $this->successResponse($query->paginate(50));

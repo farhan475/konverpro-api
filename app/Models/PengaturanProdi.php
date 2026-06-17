@@ -20,6 +20,7 @@ class PengaturanProdi extends Model
         'metode_pengakuan',
     ];
 
+    /** @return BelongsTo<Prodi, $this> */
     public function prodi(): BelongsTo
     {
         return $this->belongsTo(Prodi::class, 'id_prodi');

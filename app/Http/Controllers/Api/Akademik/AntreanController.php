@@ -28,6 +28,7 @@ class AntreanController extends Controller
             Pendaftar::whereIn('status', [
                 StatusPendaftarEnum::BARU,
                 StatusPendaftarEnum::AI_PROCESSING,
+                StatusPendaftarEnum::REVIEW_AKADEMIK,
             ])
                 ->with('prodi:id,nama_prodi,kode_prodi')
                 ->latest()
@@ -54,7 +55,9 @@ class AntreanController extends Controller
                 'nama_lengkap', 'nim_asal', 'email', 'no_whatsapp', 'asal_kampus', 'asal_prodi', 'id_prodi'
             ]));
 
-            foreach ($request->transkrip as $item) {
+            /** @var array<int, array{id: string, nama_mk_asal: string, sks_asal: int, nilai_huruf_asal: string}> $transkripItems */
+            $transkripItems = $request->transkrip;
+            foreach ($transkripItems as $item) {
                 TranskripAsal::where('id', $item['id'])
                     ->where('id_pendaftar', $pendaftar->id)
                     ->update([
@@ -95,9 +98,27 @@ class AntreanController extends Controller
                 "Matching selesai untuk {$pendaftar->nama_lengkap}"
             );
 
-            return $this->successResponse(null, 'Proses matching selesai. Menunggu validasi kaprodi.');
+            return $this->successResponse(null, 'Proses matching selesai. Menunggu review akademik.');
         } catch (\Exception $e) {
             return $this->errorResponse('Proses matching gagal: ' . $e->getMessage(), 500);
         }
+    }
+
+    public function confirmToKaprodi(Pendaftar $pendaftar): JsonResponse
+    {
+        if ($pendaftar->status !== StatusPendaftarEnum::REVIEW_AKADEMIK) {
+            return $this->errorResponse('Hanya pendaftar dengan status "Review Akademik" yang dapat dikonfirmasi.', 422);
+        }
+
+        $pendaftar->update(['status' => StatusPendaftarEnum::PENDING_KAPRODI]);
+
+        $this->audit->log(
+            'antrean.confirmed',
+            'Pendaftar',
+            $pendaftar->id,
+            "Akademik mengkonfirmasi hasil matching {$pendaftar->nama_lengkap} ke Kaprodi"
+        );
+
+        return $this->successResponse(null, 'Hasil matching dikonfirmasi. Menunggu validasi Kaprodi.');
     }
 }

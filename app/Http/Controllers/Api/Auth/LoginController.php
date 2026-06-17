@@ -54,10 +54,7 @@ class LoginController extends Controller
         $user = $request->user();
 
         if ($user instanceof User) {
-            $token = $user->currentAccessToken();
-            if ($token) {
-                $token->delete();
-            }
+            $user->currentAccessToken()->delete();
         }
 
         return $this->successResponse(null, 'Logout berhasil.');

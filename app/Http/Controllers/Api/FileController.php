@@ -2,18 +2,34 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Enums\RoleEnum;
 use App\Http\Controllers\Controller;
 use App\Models\Pendaftar;
-use Illuminate\Http\Request;
+use App\Models\Prodi;
+use App\Models\User;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Storage;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class FileController extends Controller
 {
-    public function showExcel(Pendaftar $pendaftar): StreamedResponse
+    public function showExcel(Pendaftar $pendaftar): StreamedResponse|JsonResponse
     {
-        // Check access if needed (e.g., admin who created it, or akademik/kaprodi)
-        // For simplicity, allowing auth:sanctum users for now as they are all staff
+        /** @var User $user */
+        $user = auth()->user();
+        
+        // Security Check for Admin
+        if ($user->role === RoleEnum::ADMIN && $pendaftar->created_by !== $user->id) {
+            return response()->json(['success' => false, 'message' => 'Unauthorized. Berkas ini bukan milik Anda.'], 403);
+        }
+
+        // Security Check for Kaprodi
+        if ($user->role === RoleEnum::KAPRODI) {
+            $prodiIds = Prodi::where('id_kaprodi', $user->id)->pluck('id');
+            if (!$prodiIds->contains($pendaftar->id_prodi)) {
+                return response()->json(['success' => false, 'message' => 'Unauthorized. Pendaftar bukan dari prodi Anda.'], 403);
+            }
+        }
         
         if (!$pendaftar->file_transkrip_excel_path) {
             abort(404, 'File not found.');
@@ -25,8 +41,24 @@ class FileController extends Controller
         );
     }
 
-    public function showPdf(Pendaftar $pendaftar): StreamedResponse
+    public function showPdf(Pendaftar $pendaftar): StreamedResponse|JsonResponse
     {
+        /** @var User $user */
+        $user = auth()->user();
+
+        // Security Check for Admin
+        if ($user->role === RoleEnum::ADMIN && $pendaftar->created_by !== $user->id) {
+            return response()->json(['success' => false, 'message' => 'Unauthorized. Berkas ini bukan milik Anda.'], 403);
+        }
+
+        // Security Check for Kaprodi
+        if ($user->role === RoleEnum::KAPRODI) {
+            $prodiIds = Prodi::where('id_kaprodi', $user->id)->pluck('id');
+            if (!$prodiIds->contains($pendaftar->id_prodi)) {
+                return response()->json(['success' => false, 'message' => 'Unauthorized. Pendaftar bukan dari prodi Anda.'], 403);
+            }
+        }
+
         if (!$pendaftar->file_transkrip_pdf_path) {
             abort(404, 'File not found.');
         }
@@ -39,8 +71,9 @@ class FileController extends Controller
 
     public function showSignature(): StreamedResponse
     {
+        /** @var User $user */
         $user = auth()->user();
-        if (!$user || !$user->tanda_tangan_path) {
+        if (!$user->tanda_tangan_path) {
             abort(404, 'Signature not found.');
         }
 

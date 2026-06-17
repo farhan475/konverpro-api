@@ -42,7 +42,7 @@ class PendaftarController extends Controller
             return $this->errorResponse('File Excel wajib diunggah.', 400);
         }
 
-        $disk = config('filesystems.default', 'local');
+        $disk = (string) config('filesystems.default', 'local');
         $tmpPath = $fileExcel->storeAs(
             'tmp/pendaftar',
             Str::uuid() . '.' . $fileExcel->getClientOriginalExtension(),
@@ -82,7 +82,7 @@ class PendaftarController extends Controller
                 'upload_pendaftar',
                 'Pendaftar',
                 null,
-                'Uploaded Excel with ' . count($pendaftars) . ' students to disk: ' . $disk
+                'Uploaded Excel with ' . count($pendaftars) . ' students to disk: ' . (string) $disk
             );
 
             return $this->successResponse(

@@ -77,7 +77,7 @@ class MatchingService
                 }
             }
 
-            $pendaftar->update(['status' => StatusPendaftarEnum::PENDING_KAPRODI]);
+            $pendaftar->update(['status' => StatusPendaftarEnum::REVIEW_AKADEMIK]);
             DB::commit();
         } catch (\Throwable $e) {
             DB::rollBack();

@@ -19,7 +19,7 @@ class LaporanController extends Controller
             'global' => [
                 'total_pendaftar' => Pendaftar::count(),
                 'total_sks_diakui' => Pendaftar::where('status', 'Approved')->sum('total_sks_diakui'),
-                'avg_sks_per_mhs' => round(Pendaftar::where('status', 'Approved')->avg('total_sks_diakui') ?? 0, 2),
+                'avg_sks_per_mhs' => round((float) (Pendaftar::where('status', 'Approved')->avg('total_sks_diakui') ?? 0), 2),
             ],
             'by_status' => Pendaftar::select('status', DB::raw('count(*) as total'))
                 ->groupBy('status')

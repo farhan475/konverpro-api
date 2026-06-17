@@ -21,12 +21,13 @@ class Prodi extends Model
         'jenjang',
     ];
 
-    /** @return BelongsTo<User, $this> */
+    /** @return HasOne<PengaturanProdi, $this> */
     public function pengaturan(): HasOne
     {
         return $this->hasOne(PengaturanProdi::class, 'id_prodi');
     }
 
+    /** @return BelongsTo<User, $this> */
     public function kaprodi(): BelongsTo
     {
         return $this->belongsTo(User::class, 'id_kaprodi');

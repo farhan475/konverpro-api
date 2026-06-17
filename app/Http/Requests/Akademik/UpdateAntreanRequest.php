@@ -13,6 +13,7 @@ class UpdateAntreanRequest extends FormRequest
         return $user instanceof User && $user->role->value === 'akademik';
     }
 
+    /** @return array<string, string> */
     public function rules(): array
     {
         return [

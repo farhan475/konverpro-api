@@ -33,6 +33,27 @@ class KamusSinonimController extends Controller
         return $this->successResponse($kamus, 'Kamus entry created successfully.', 201);
     }
 
+    public function update(\App\Http\Requests\StoreKamusSinonimRequest $request, KamusSinonim $kamusSinonim): JsonResponse
+    {
+        $validated = $request->validated();
+
+        // Check for duplicate (excluding current entry)
+        $exists = KamusSinonim::where('kata_utama', strtolower(trim((string) $validated['kata_utama'])))
+            ->where('sinonim', strtolower(trim((string) $validated['sinonim'])))
+            ->where('id', '!=', $kamusSinonim->id)
+            ->exists();
+
+        if ($exists) {
+            return $this->errorResponse('Pasangan ini sudah ada di kamus.', 422);
+        }
+
+        $kamusSinonim->update($validated);
+
+        $this->audit->log('update_kamus', 'KamusSinonim', $kamusSinonim->id, "Updated synonym: {$kamusSinonim->sinonim} -> {$kamusSinonim->kata_utama}");
+
+        return $this->successResponse($kamusSinonim, 'Kamus entry updated successfully.');
+    }
+
     public function destroy(KamusSinonim $kamusSinonim): JsonResponse
     {
         $kamusSinonim->delete();

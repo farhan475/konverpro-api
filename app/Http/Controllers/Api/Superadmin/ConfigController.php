@@ -56,7 +56,9 @@ class ConfigController extends Controller
             'settings.*' => 'nullable|string|max:500',
         ]);
 
-        foreach ($request->settings as $key => $value) {
+        /** @var array<string, string|null> $settings */
+        $settings = $request->input('settings', []);
+        foreach ($settings as $key => $value) {
             if (!in_array($key, self::ALLOWED_KEYS)) continue;
             if ($value === '••••••••') continue;
             PengaturanGlobal::set($key, $value ?? '');

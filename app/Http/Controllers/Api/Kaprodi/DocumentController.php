@@ -2,9 +2,11 @@
 
 namespace App\Http\Controllers\Api\Kaprodi;
 
+use App\Enums\StatusPendaftarEnum;
 use App\Http\Controllers\Controller;
 use App\Models\Pendaftar;
 use App\Models\PengaturanGlobal;
+use App\Models\PengaturanProdi;
 use Dompdf\Dompdf;
 use Dompdf\Options;
 use Illuminate\Http\Response;
@@ -14,22 +16,22 @@ class DocumentController extends Controller
 {
     public function downloadBa(Pendaftar $pendaftar): Response
     {
-        if ($pendaftar->status !== 'Approved') {
+        if ($pendaftar->status !== StatusPendaftarEnum::APPROVED) {
             abort(403, 'Hanya permohonan yang disetujui yang dapat mengunduh Berita Acara.');
         }
 
         $pendaftar->load(['prodi.kaprodi', 'prodi.pengaturan', 'hasilKonversi.transkripAsal', 'hasilKonversi.mkTujuan']);
 
-        $institusi = PengaturanGlobal::get('nama_institusi', 'Universitas Siber Asia');
+        $institusi = (string) PengaturanGlobal::get('nama_institusi', 'Universitas Siber Asia');
         $nomorBa = $this->generateNomorBa($pendaftar);
         
-        $signaturePath = $pendaftar->prodi->kaprodi->tanda_tangan_path ?? null;
+        $signaturePath = $pendaftar->prodi?->kaprodi?->tanda_tangan_path;
         $signatureBase64 = null;
         
         if ($signaturePath && Storage::disk('private')->exists($signaturePath)) {
             $type = pathinfo($signaturePath, PATHINFO_EXTENSION);
             $data = Storage::disk('private')->get($signaturePath);
-            $signatureBase64 = 'data:image/' . $type . ';base64,' . base64_encode($data);
+            $signatureBase64 = 'data:image/' . $type . ';base64,' . base64_encode((string) $data);
         }
 
         $options = new Options();
@@ -59,15 +61,16 @@ class DocumentController extends Controller
 
     private function generateNomorBa(Pendaftar $pendaftar): string
     {
-        $pengaturan = $pendaftar->prodi->pengaturan;
+        /** @var PengaturanProdi|null $pengaturan */
+        $pengaturan = $pendaftar->prodi?->pengaturan;
         $format = $pengaturan->format_no_ba ?? 'BA/{YEAR}/{NO}/{PRODI}';
         
         $year = date('Y');
-        $prodiCode = $pendaftar->prodi->kode_prodi ?? 'UNKNOWN';
+        $prodiCode = ($pendaftar->prodi?->kode_prodi) ?? 'UNKNOWN';
         
         // Simpel increment based on approved count in this year/prodi
         $count = Pendaftar::where('id_prodi', $pendaftar->id_prodi)
-            ->where('status', 'Approved')
+            ->where('status', StatusPendaftarEnum::APPROVED)
             ->whereYear('updated_at', $year)
             ->count();
             

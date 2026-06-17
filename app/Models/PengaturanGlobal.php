@@ -29,7 +29,7 @@ class PengaturanGlobal extends Model
     /**
      * Ambil nilai setting. Key sensitif otomatis didekripsi.
      */
-    public static function get(string $key, mixed $default = null): mixed
+    public static function get(string $key, string $default = ''): string
     {
         $record = static::find($key);
         if (!$record || $record->setting_value === null || $record->setting_value === '') {
@@ -45,13 +45,13 @@ class PengaturanGlobal extends Model
             }
         }
 
-        return $record->setting_value;
+        return (string) $record->setting_value;
     }
 
     /**
      * Simpan nilai setting. Key sensitif otomatis dienkripsi.
      */
-    public static function set(string $key, mixed $value): void
+    public static function set(string $key, string $value): void
     {
         $stored = $value;
 
