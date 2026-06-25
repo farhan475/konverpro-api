@@ -21,7 +21,7 @@ class DashboardController extends Controller
             return $this->errorResponse('Unauthenticated.', 401);
         }
 
-        $prodi = Prodi::where('id_kaprodi', $user->id)
+        $prodi = Prodi::forCurrentKaprodi()
             ->orderBy('nama_prodi')
             ->get(['id', 'kode_prodi', 'nama_prodi', 'jenjang']);
         $prodiIds = $prodi->pluck('id');

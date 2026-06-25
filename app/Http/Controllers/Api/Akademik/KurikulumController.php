@@ -78,7 +78,14 @@ class KurikulumController extends Controller
 
         $kurikulum->update($validated);
 
-        $this->audit->log('update_kurikulum', 'KurikulumMk', $kurikulum->id, "Updated MK {$kurikulum->nama_mk}");
+        $changes = $kurikulum->getChanges();
+        unset($changes['updated_at']);
+        $detail = "Updated MK {$kurikulum->nama_mk}";
+        if ($changes) {
+            $detail .= ': '.json_encode($changes);
+        }
+
+        $this->audit->log('update_kurikulum', 'KurikulumMk', $kurikulum->id, $detail);
 
         return $this->successResponse($kurikulum, 'Course updated successfully.');
     }

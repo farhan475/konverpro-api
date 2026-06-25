@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Support\Facades\Auth;
 
 class Prodi extends Model
 {
@@ -20,6 +21,14 @@ class Prodi extends Model
         'nama_prodi',
         'jenjang',
     ];
+
+    /**
+     * Scope query to prodi dipimpin oleh kaprodi yang sedang login.
+     */
+    public function scopeForCurrentKaprodi($query): void
+    {
+        $query->where('id_kaprodi', Auth::id());
+    }
 
     /** @return HasOne<PengaturanProdi, $this> */
     public function pengaturan(): HasOne

@@ -18,7 +18,7 @@ class LaporanController extends Controller
 
     public function index(Request $request): JsonResponse|StreamedResponse
     {
-        $prodiIds = Prodi::where('id_kaprodi', auth()->id())->pluck('id');
+        $prodiIds = Prodi::forCurrentKaprodi()->pluck('id');
         $approvedQuery = Pendaftar::whereIn('id_prodi', $prodiIds)
             ->where('status', 'Approved')
             ->with('prodi')

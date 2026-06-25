@@ -64,6 +64,7 @@ class ConfigController extends Controller
             'settings.fuzzy_threshold_sumopod' => 'nullable|numeric|min:0|max:100',
             'settings.max_konversi_sks_persen' => 'nullable|integer|min:0|max:100',
             'settings.smtp_port' => 'nullable|integer|min:1|max:65535',
+            'settings.min_nilai_huruf_konversi' => 'nullable|string|in:A,B+,B,C+,C,D,E',
             'settings.sumopod_base_url' => 'nullable|url|max:500',
             'settings.notif_email_aktif' => 'nullable|in:true,false',
             'settings.notif_wa_aktif' => 'nullable|in:true,false',

@@ -42,6 +42,7 @@ Route::middleware(['auth.cookie'])->group(function () {
     // Files
     Route::get('files/excel/{pendaftar}', [FileController::class, 'showExcel']);
     Route::get('files/pdf/{pendaftar}', [FileController::class, 'showPdf']);
+    Route::get('files/tanda-tangan/{userId}', [FileController::class, 'showTandaTangan']);
     Route::get('notifications', [NotificationController::class, 'index']);
     Route::post('notifications/read-all', [NotificationController::class, 'markAllRead']);
     Route::post('notifications/{notification}/read', [NotificationController::class, 'markRead']);
@@ -109,6 +110,9 @@ Route::middleware(['auth.cookie'])->group(function () {
         Route::post('validasi/{pendaftar}/revoke-ba', [Kaprodi\DocumentController::class, 'revokeBa']);
         Route::post('validasi/{pendaftar}/replace-ba', [Kaprodi\DocumentController::class, 'replaceBa']);
         Route::get('laporan', [Kaprodi\LaporanController::class, 'index']);
+        Route::get('tanda-tangan', [Kaprodi\TandaTanganController::class, 'index']);
+        Route::post('tanda-tangan', [Kaprodi\TandaTanganController::class, 'store']);
+        Route::delete('tanda-tangan', [Kaprodi\TandaTanganController::class, 'destroy']);
     });
 
 });

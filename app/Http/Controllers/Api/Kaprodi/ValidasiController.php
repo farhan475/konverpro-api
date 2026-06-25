@@ -38,7 +38,7 @@ class ValidasiController extends Controller
             'search' => 'nullable|string|max:100',
             'status' => 'nullable|in:Pending Kaprodi,Revisi,Approved,Rejected',
         ]);
-        $prodiIds = Prodi::where('id_kaprodi', Auth::id())->pluck('id');
+        $prodiIds = Prodi::forCurrentKaprodi()->pluck('id');
         $query = Pendaftar::whereIn('id_prodi', $prodiIds);
 
         if (! empty($validated['status'])) {
@@ -64,7 +64,7 @@ class ValidasiController extends Controller
 
     public function show(Pendaftar $pendaftar): JsonResponse
     {
-        $prodiIds = Prodi::where('id_kaprodi', Auth::id())->pluck('id');
+        $prodiIds = Prodi::forCurrentKaprodi()->pluck('id');
         if (! $prodiIds->contains($pendaftar->id_prodi)) {
             return $this->errorResponse('Unauthorized for this prodi.', 403);
         }
@@ -81,7 +81,7 @@ class ValidasiController extends Controller
     public function updateHasil(ProcessValidasiRequest $request, HasilKonversi $hasilKonversi): JsonResponse
     {
         // Ownership Check: Kaprodi hanya bisa mengubah hasil jika pendaftar di bawah prodinya
-        $prodiIds = Prodi::where('id_kaprodi', Auth::id())->pluck('id');
+        $prodiIds = Prodi::forCurrentKaprodi()->pluck('id');
 
         /** @var Pendaftar $pendaftar */
         $pendaftar = $hasilKonversi->pendaftar;
@@ -190,7 +190,7 @@ class ValidasiController extends Controller
         $count = 0;
 
         // Security check: Pastikan hanya memproses pendaftar dari prodi milik Kaprodi
-        $prodiIds = Prodi::where('id_kaprodi', Auth::id())->pluck('id');
+        $prodiIds = Prodi::forCurrentKaprodi()->pluck('id');
 
         $pendaftars = Pendaftar::whereIn('id', $ids)
             ->whereIn('id_prodi', $prodiIds)
@@ -290,7 +290,7 @@ class ValidasiController extends Controller
 
     private function canManage(Pendaftar $pendaftar): bool
     {
-        return Prodi::where('id_kaprodi', Auth::id())
+        return Prodi::forCurrentKaprodi()
             ->where('id', $pendaftar->id_prodi)
             ->exists();
     }

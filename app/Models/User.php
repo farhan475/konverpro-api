@@ -21,6 +21,7 @@ class User extends Authenticatable
         'password',
         'role',
         'avatar_path',
+        'tanda_tangan_path',
         'status',
         'last_login',
     ];

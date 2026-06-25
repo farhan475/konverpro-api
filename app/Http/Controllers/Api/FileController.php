@@ -9,12 +9,23 @@ use App\Models\Prodi;
 use App\Models\User;
 use App\Services\AuditService;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class FileController extends Controller
 {
     public function __construct(private AuditService $audit) {}
+
+    public function showTandaTangan(string $userId): StreamedResponse|JsonResponse
+    {
+        $user = User::find($userId);
+        if (! $user?->tanda_tangan_path || ! Storage::disk('private')->exists($user->tanda_tangan_path)) {
+            abort(404, 'File not found.');
+        }
+
+        return Storage::disk('private')->response($user->tanda_tangan_path);
+    }
 
     public function showExcel(Pendaftar $pendaftar): StreamedResponse|JsonResponse
     {
