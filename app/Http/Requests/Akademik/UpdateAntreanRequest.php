@@ -10,6 +10,7 @@ class UpdateAntreanRequest extends FormRequest
     public function authorize(): bool
     {
         $user = $this->user();
+
         return $user instanceof User && $user->role->value === 'akademik';
     }
 

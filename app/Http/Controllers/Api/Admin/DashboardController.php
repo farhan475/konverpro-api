@@ -14,7 +14,7 @@ class DashboardController extends Controller
     public function index(): JsonResponse
     {
         $userId = auth()->id();
-        
+
         return $this->successResponse([
             'stats' => [
                 'total_input' => Pendaftar::where('created_by', $userId)->count(),

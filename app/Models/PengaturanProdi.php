@@ -8,8 +8,11 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class PengaturanProdi extends Model
 {
     protected $table = 'pengaturan_prodi';
+
     protected $primaryKey = 'id_prodi';
+
     public $incrementing = false;
+
     protected $keyType = 'string';
 
     protected $fillable = [

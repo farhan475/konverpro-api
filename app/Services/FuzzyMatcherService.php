@@ -12,7 +12,9 @@ class FuzzyMatcherService
         $str1 = $this->normalize($str1);
         $str2 = $this->normalize($str2);
 
-        if ($str1 === $str2) return 100.0;
+        if ($str1 === $str2) {
+            return 100.0;
+        }
 
         $levScore = $this->levenshteinScore($str1, $str2);
         $jaroScore = $this->jaroWinklerScore($str1, $str2);
@@ -29,9 +31,12 @@ class FuzzyMatcherService
     private function levenshteinScore(string $str1, string $str2): float
     {
         $maxLen = max(strlen($str1), strlen($str2));
-        if ($maxLen === 0) return 100.0;
-        
+        if ($maxLen === 0) {
+            return 100.0;
+        }
+
         $lev = levenshtein($str1, $str2);
+
         return (1 - ($lev / $maxLen)) * 100;
     }
 
@@ -57,8 +62,12 @@ class FuzzyMatcherService
         $len1 = strlen($str1);
         $len2 = strlen($str2);
 
-        if ($len1 == 0 && $len2 == 0) return 1.0;
-        if ($len1 == 0 || $len2 == 0) return 0.0;
+        if ($len1 == 0 && $len2 == 0) {
+            return 1.0;
+        }
+        if ($len1 == 0 || $len2 == 0) {
+            return 0.0;
+        }
 
         $matchDistance = (int) (max($len1, $len2) / 2) - 1;
 
@@ -71,8 +80,12 @@ class FuzzyMatcherService
             $end = min($i + $matchDistance + 1, $len2);
 
             for ($j = $start; $j < $end; $j++) {
-                if ($matches2[$j]) continue;
-                if ($str1[$i] !== $str2[$j]) continue;
+                if ($matches2[$j]) {
+                    continue;
+                }
+                if ($str1[$i] !== $str2[$j]) {
+                    continue;
+                }
 
                 $matches1[$i] = true;
                 $matches2[$j] = true;
@@ -81,14 +94,22 @@ class FuzzyMatcherService
             }
         }
 
-        if ($matches == 0) return 0.0;
+        if ($matches == 0) {
+            return 0.0;
+        }
 
         $transpositions = 0;
         $k = 0;
         for ($i = 0; $i < $len1; $i++) {
-            if (!$matches1[$i]) continue;
-            while (!$matches2[$k]) $k++;
-            if ($str1[$i] !== $str2[$k]) $transpositions++;
+            if (! $matches1[$i]) {
+                continue;
+            }
+            while (! $matches2[$k]) {
+                $k++;
+            }
+            if ($str1[$i] !== $str2[$k]) {
+                $transpositions++;
+            }
             $k++;
         }
 

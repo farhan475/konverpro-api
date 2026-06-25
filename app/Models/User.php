@@ -21,7 +21,6 @@ class User extends Authenticatable
         'password',
         'role',
         'avatar_path',
-        'tanda_tangan_path',
         'status',
         'last_login',
     ];
@@ -47,5 +46,11 @@ class User extends Authenticatable
     public function pendaftarDibuat(): HasMany
     {
         return $this->hasMany(Pendaftar::class, 'created_by');
+    }
+
+    /** @return HasMany<InternalNotification, $this> */
+    public function internalNotifications(): HasMany
+    {
+        return $this->hasMany(InternalNotification::class, 'id_user');
     }
 }

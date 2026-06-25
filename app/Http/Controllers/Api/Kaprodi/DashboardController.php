@@ -17,18 +17,24 @@ class DashboardController extends Controller
     {
         /** @var User|null $user */
         $user = auth()->user();
-        if (!$user) {
+        if (! $user) {
             return $this->errorResponse('Unauthenticated.', 401);
         }
-        
-        $prodiIds = Prodi::where('id_kaprodi', $user->id)->pluck('id');
+
+        $prodi = Prodi::where('id_kaprodi', $user->id)
+            ->orderBy('nama_prodi')
+            ->get(['id', 'kode_prodi', 'nama_prodi', 'jenjang']);
+        $prodiIds = $prodi->pluck('id');
 
         return $this->successResponse([
             'stats' => [
                 'pending_validation' => Pendaftar::whereIn('id_prodi', $prodiIds)->where('status', 'Pending Kaprodi')->count(),
-                'total_approved' => Pendaftar::whereIn('id_prodi', $prodiIds)->where('status', 'Approved')->count(),
-                'total_rejected' => Pendaftar::whereIn('id_prodi', $prodiIds)->where('status', 'Rejected')->count(),
+                'revisi' => Pendaftar::whereIn('id_prodi', $prodiIds)->where('status', 'Revisi')->count(),
+                'approved' => Pendaftar::whereIn('id_prodi', $prodiIds)->where('status', 'Approved')->count(),
+                'total_sks' => Pendaftar::whereIn('id_prodi', $prodiIds)->where('status', 'Approved')->sum('total_sks_diakui'),
             ],
+            'prodi' => $prodi,
+            'verification_method' => 'qr',
             'recent_validation' => Pendaftar::whereIn('id_prodi', $prodiIds)
                 ->where('status', 'Pending Kaprodi')
                 ->latest()

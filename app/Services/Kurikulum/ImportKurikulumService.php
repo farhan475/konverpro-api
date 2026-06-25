@@ -8,9 +8,7 @@ use Illuminate\Support\Facades\DB;
 class ImportKurikulumService
 {
     /**
-     * @param int $idProdi
-     * @param array<int, array<string, mixed>> $data
-     * @return int
+     * @param  array<int, array<string, mixed>>  $data
      */
     public function import(int $idProdi, array $data): int
     {
@@ -33,6 +31,7 @@ class ImportKurikulumService
                 ]);
                 $successCount++;
             }
+
             return $successCount;
         });
     }

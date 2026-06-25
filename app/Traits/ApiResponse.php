@@ -15,15 +15,15 @@ trait ApiResponse
         $payload = [
             'success' => true,
             'message' => $message,
-            'data'    => $data instanceof LengthAwarePaginator ? $data->items() : $data,
+            'data' => $data instanceof LengthAwarePaginator ? $data->items() : $data,
         ];
 
         if ($data instanceof LengthAwarePaginator) {
             $payload['meta'] = [
                 'current_page' => $data->currentPage(),
-                'per_page'     => $data->perPage(),
-                'total'        => $data->total(),
-                'last_page'    => $data->lastPage(),
+                'per_page' => $data->perPage(),
+                'total' => $data->total(),
+                'last_page' => $data->lastPage(),
             ];
         }
 

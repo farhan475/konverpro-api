@@ -1,24 +1,18 @@
 <?php
 
 return [
+    'frontend_url' => env('FRONTEND_URL', 'http://localhost:3000'),
     'roles' => [
         'superadmin',
-        'admin_pt',
-        'staff',
+        'admin',
         'akademik',
         'kaprodi',
     ],
 
     'role_dashboards' => [
         'superadmin' => 'superadmin.dashboard',
-        'admin_pt' => 'admin-pt.dashboard',
-        'staff' => 'staff.dashboard',
+        'admin' => 'admin.dashboard',
         'akademik' => 'akademik.dashboard',
         'kaprodi' => 'kaprodi.dashboard',
     ],
-
-    'api_allowed_origins' => array_filter(array_map(
-        'trim',
-        explode(',', env('API_ALLOWED_ORIGINS', 'http://localhost:3000,http://127.0.0.1:3000')),
-    )),
 ];

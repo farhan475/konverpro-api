@@ -8,11 +8,14 @@ use App\Models\Pendaftar;
 use App\Models\User;
 use App\Services\AuditService;
 use App\Services\ExcelParserService;
+use App\Services\InternalNotificationService;
 use App\Traits\ApiResponse;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use InvalidArgumentException;
 
 class PendaftarController extends Controller
 {
@@ -20,16 +23,35 @@ class PendaftarController extends Controller
 
     public function __construct(
         protected ExcelParserService $excelParser,
-        private AuditService $audit
+        private AuditService $audit,
+        private InternalNotificationService $notifications
     ) {}
 
-    public function index(): JsonResponse
+    public function index(Request $request): JsonResponse
     {
+        $request->validate([
+            'status' => 'nullable|in:Baru,AI Processing,Review Akademik,Pending Kaprodi,Revisi,Approved,Rejected',
+            'search' => 'nullable|string|max:100',
+        ]);
+
+        $query = Pendaftar::where('created_by', Auth::id())
+            ->with('prodi')
+            ->latest();
+
+        if ($request->filled('status')) {
+            $query->where('status', $request->string('status')->toString());
+        }
+
+        if ($request->filled('search')) {
+            $search = $request->string('search')->toString();
+            $query->where(function ($builder) use ($search) {
+                $builder->where('nama_lengkap', 'like', "%{$search}%")
+                    ->orWhere('nim_asal', 'like', "%{$search}%");
+            });
+        }
+
         return $this->successResponse(
-            Pendaftar::where('created_by', Auth::id())
-                ->with('prodi')
-                ->latest()
-                ->paginate(20)
+            $query->paginate(20)
         );
     }
 
@@ -38,18 +60,18 @@ class PendaftarController extends Controller
         $fileExcel = $request->file('file_excel');
         $filePdf = $request->file('file_pdf');
 
-        if (!$fileExcel) {
+        if (! $fileExcel) {
             return $this->errorResponse('File Excel wajib diunggah.', 400);
         }
 
-        $disk = (string) config('filesystems.default', 'local');
+        $disk = 'private';
         $tmpPath = $fileExcel->storeAs(
             'tmp/pendaftar',
-            Str::uuid() . '.' . $fileExcel->getClientOriginalExtension(),
+            Str::uuid().'.'.$fileExcel->getClientOriginalExtension(),
             'local'
         );
 
-        if (!$tmpPath) {
+        if (! $tmpPath) {
             return $this->errorResponse('Gagal menyimpan file Excel sementara.', 500);
         }
 
@@ -67,7 +89,7 @@ class PendaftarController extends Controller
             $pathExcel = $fileExcel->store('pendaftar/excel', $disk);
             $pathPdf = $filePdf ? $filePdf->store('pendaftar/pdf', $disk) : null;
 
-            if (!$pathExcel) {
+            if (! $pathExcel) {
                 return $this->errorResponse('Gagal mengunggah file Excel ke storage.', 500);
             }
 
@@ -82,15 +104,25 @@ class PendaftarController extends Controller
                 'upload_pendaftar',
                 'Pendaftar',
                 null,
-                'Uploaded Excel with ' . count($pendaftars) . ' students to disk: ' . (string) $disk
+                'Uploaded Excel with '.count($pendaftars).' students to disk: '.(string) $disk
+            );
+            $this->notifications->notifyRole(
+                'akademik',
+                'application_created',
+                'Pendaftar baru',
+                count($pendaftars).' pendaftar baru siap direview.',
+                '/akademik/antrean',
+                'Pendaftar'
             );
 
             return $this->successResponse(
                 $pendaftars,
-                count($pendaftars) . ' mahasiswa berhasil diproses.'
+                count($pendaftars).' mahasiswa berhasil diproses.'
             );
+        } catch (InvalidArgumentException $e) {
+            return $this->errorResponse('Gagal memproses Excel: '.$e->getMessage(), 422);
         } catch (\Throwable $e) {
-            return $this->errorResponse('Gagal memproses Excel: ' . $e->getMessage(), 500);
+            return $this->errorResponse('Gagal memproses Excel: '.$e->getMessage(), 500);
         } finally {
             Storage::disk('local')->delete($tmpPath);
         }
@@ -102,6 +134,13 @@ class PendaftarController extends Controller
             return $this->errorResponse('Tidak memiliki akses.', 403);
         }
 
-        return $this->successResponse($pendaftar->load('prodi', 'transkripAsal', 'hasilKonversi.mkTujuan'));
+        $pendaftar->load('prodi', 'transkripAsal', 'hasilKonversi.mkTujuan', 'appeals', 'currentBaDocument');
+
+        $frontendUrl = config('konverpro.frontend_url');
+
+        return $this->successResponse([
+            'pendaftar' => $pendaftar,
+            'portal_url' => rtrim(is_string($frontendUrl) ? $frontendUrl : 'http://localhost:3000', '/').'/portal/'.$pendaftar->portal_token,
+        ]);
     }
 }

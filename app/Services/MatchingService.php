@@ -16,24 +16,18 @@ class MatchingService
 {
     public function __construct(
         protected FuzzyMatcherService $fuzzyMatcher,
-        protected SumopodService $sumopod
+        protected SumopodService $sumopod,
+        protected CourseEquivalencyService $equivalencies
     ) {}
 
     public function processMatching(Pendaftar $pendaftar): void
     {
+        $this->validateReady($pendaftar);
         $thresholdAuto = (float) PengaturanGlobal::get('fuzzy_threshold_auto', '80');
         $thresholdAi = (float) PengaturanGlobal::get('fuzzy_threshold_sumopod', '50');
 
         $transkrip = $pendaftar->transkripAsal;
         $kurikulum = KurikulumMk::where('id_prodi', $pendaftar->id_prodi)->get();
-
-        if ($transkrip->isEmpty()) {
-            throw new \RuntimeException('Data transkrip asal kosong.');
-        }
-
-        if ($kurikulum->isEmpty()) {
-            throw new \RuntimeException('Data kurikulum prodi tujuan kosong.');
-        }
 
         DB::beginTransaction();
         try {
@@ -42,6 +36,21 @@ class MatchingService
             HasilKonversi::where('id_pendaftar', $pendaftar->id)->delete();
 
             foreach ($transkrip as $item) {
+                $reference = $this->equivalencies->find($pendaftar, $item);
+                if ($reference?->mkTujuan instanceof KurikulumMk
+                    && $reference->mkTujuan->id_prodi === $pendaftar->id_prodi) {
+                    $this->saveMatch(
+                        $pendaftar,
+                        $item,
+                        $reference->mkTujuan,
+                        100,
+                        'Referensi',
+                        'Menggunakan ekuivalensi yang telah disetujui sebelumnya.'
+                    );
+
+                    continue;
+                }
+
                 $namaNormal = $this->normalizeWithKamus($item->nama_mk_asal);
 
                 $bestMatch = null;
@@ -87,6 +96,17 @@ class MatchingService
                 'error' => $e->getMessage(),
             ]);
             throw $e;
+        }
+    }
+
+    public function validateReady(Pendaftar $pendaftar): void
+    {
+        if (! $pendaftar->transkripAsal()->exists()) {
+            throw new \RuntimeException('Data transkrip asal kosong.');
+        }
+
+        if (! KurikulumMk::where('id_prodi', $pendaftar->id_prodi)->exists()) {
+            throw new \RuntimeException('Data kurikulum prodi tujuan kosong.');
         }
     }
 

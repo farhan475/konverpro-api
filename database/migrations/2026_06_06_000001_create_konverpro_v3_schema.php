@@ -15,7 +15,7 @@ return new class extends Migration
             $table->timestamp('updated_at')->nullable()->useCurrent()->useCurrentOnUpdate();
         });
 
-        // 2. Users (UUID, No id_kampus)
+        // 2. Users (UUID, single institution)
         Schema::create('users', function (Blueprint $table) {
             $table->uuid('id')->primary();
             $table->string('nama_lengkap', 100);
@@ -54,12 +54,12 @@ return new class extends Migration
             $table->string('file_transkrip_excel_path')->nullable();
             $table->string('file_transkrip_pdf_path')->nullable();
             $table->enum('status', [
-                'Baru', 
-                'AI Processing', 
-                'Pending Kaprodi', 
-                'Revisi', 
-                'Approved', 
-                'Rejected'
+                'Baru',
+                'AI Processing',
+                'Pending Kaprodi',
+                'Revisi',
+                'Approved',
+                'Rejected',
             ])->default('Baru');
             $table->integer('total_sks_diakui')->default(0);
             $table->text('catatan_revisi')->nullable();
@@ -130,7 +130,7 @@ return new class extends Migration
             $table->index('sinonim');
         });
 
-        // 9. Audit Logs (UUID, No id_kampus)
+        // 9. Audit Logs (UUID, single institution)
         Schema::create('audit_logs', function (Blueprint $table) {
             $table->uuid('id')->primary();
             $table->foreignUuid('id_user')->nullable()->constrained('users')->nullOnDelete();

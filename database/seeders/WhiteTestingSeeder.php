@@ -3,11 +3,10 @@
 namespace Database\Seeders;
 
 use App\Enums\RoleEnum;
+use App\Models\KurikulumMk;
 use App\Models\Prodi;
 use App\Models\User;
-use App\Models\KurikulumMk;
 use Illuminate\Database\Seeder;
-use Illuminate\Support\Facades\Hash;
 
 class WhiteTestingSeeder extends Seeder
 {

@@ -10,6 +10,7 @@ class ProcessValidasiRequest extends FormRequest
     public function authorize(): bool
     {
         $user = $this->user();
+
         return $user instanceof User && $user->role->value === 'kaprodi';
     }
 
@@ -22,7 +23,6 @@ class ProcessValidasiRequest extends FormRequest
             'id_mk_tujuan' => 'nullable|exists:kurikulum_mk,id',
             'nilai_akhir_huruf' => 'nullable|string|max:5',
             'sks_diakui' => 'nullable|integer|min:0',
-            'is_unmatched' => 'boolean',
         ];
     }
 }

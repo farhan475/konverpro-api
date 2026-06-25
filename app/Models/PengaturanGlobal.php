@@ -2,16 +2,20 @@
 
 namespace App\Models;
 
+use Illuminate\Contracts\Encryption\DecryptException;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Crypt;
-use Illuminate\Contracts\Encryption\DecryptException;
 
 class PengaturanGlobal extends Model
 {
-    protected $table      = 'pengaturan_global';
+    protected $table = 'pengaturan_global';
+
     protected $primaryKey = 'setting_key';
-    protected $keyType    = 'string';
-    public $incrementing  = false;
+
+    protected $keyType = 'string';
+
+    public $incrementing = false;
+
     public const CREATED_AT = null;
 
     protected $fillable = ['setting_key', 'setting_value'];
@@ -32,7 +36,7 @@ class PengaturanGlobal extends Model
     public static function get(string $key, string $default = ''): string
     {
         $record = static::find($key);
-        if (!$record || $record->setting_value === null || $record->setting_value === '') {
+        if (! $record || $record->setting_value === null || $record->setting_value === '') {
             return $default;
         }
 
@@ -55,7 +59,7 @@ class PengaturanGlobal extends Model
     {
         $stored = $value;
 
-        if (in_array($key, self::ENCRYPTED_KEYS) && !empty($value)) {
+        if (in_array($key, self::ENCRYPTED_KEYS) && ! empty($value)) {
             $stored = Crypt::encryptString((string) $value);
         }
 

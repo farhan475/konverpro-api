@@ -2,12 +2,11 @@
 
 namespace Database\Seeders;
 
-use App\Models\User;
-use App\Models\Prodi;
-use App\Models\KurikulumMk;
 use App\Models\KamusSinonim;
-use App\Models\PengaturanGlobal;
+use App\Models\KurikulumMk;
 use App\Models\PengaturanProdi;
+use App\Models\Prodi;
+use App\Models\User;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
 
@@ -15,37 +14,15 @@ class DatabaseSeeder extends Seeder
 {
     public function run(): void
     {
-        // 1. Pengaturan Global
-        $settings = [
-            'nama_institusi' => 'Universitas Siber Asia',
-            'fuzzy_threshold_auto' => '80',
-            'fuzzy_threshold_sumopod' => '50',
-            'sumopod_model' => 'gpt-4o-mini',
-            'sumopod_base_url' => 'https://api.sumopod.com/v1',
-            'notif_email_aktif' => 'true',
-            'notif_wa_aktif' => 'true',
-        ];
+        $this->call(KonverproDefaultsSeeder::class);
 
-        foreach ($settings as $key => $value) {
-            PengaturanGlobal::updateOrCreate(['setting_key' => $key], ['setting_value' => $value]);
-        }
+        $superadmin = User::where('email', 'admin@unsia.ac.id')->firstOrFail();
 
-        // 2. Users (Superadmin)
-        $superadmin = User::updateOrCreate(
-            ['email' => 'admin@unsia.ac.id'],
+        // User demo untuk pengembangan lokal.
+        User::updateOrCreate(
+            ['email' => 'admin-konversi@unsia.ac.id'],
             [
-                'nama_lengkap' => 'Superadmin KonverPro',
-                'password' => Hash::make('password'),
-                'role' => 'superadmin',
-                'status' => 'active',
-            ]
-        );
-
-        // 3. User Lain (Dummy)
-        $admin = User::updateOrCreate(
-            ['email' => 'staff@unsia.ac.id'],
-            [
-                'nama_lengkap' => 'Staf Admisi',
+                'nama_lengkap' => 'Admin Konversi',
                 'password' => Hash::make('password'),
                 'role' => 'admin',
                 'status' => 'active',
@@ -62,24 +39,40 @@ class DatabaseSeeder extends Seeder
             ]
         );
 
-        $kaprodi = User::updateOrCreate(
-            ['email' => 'if@unsia.ac.id'],
-            [
-                'nama_lengkap' => 'Kaprodi Informatika',
-                'password' => Hash::make('password'),
-                'role' => 'kaprodi',
-                'status' => 'active',
-            ]
-        );
+        $kaprodiData = [
+            'IF' => ['nama' => 'Syahid Abdullah, S.Si, M.Kom', 'email' => 'syahidabdullah@lecturer.unsia.ac.id'],
+            'SI' => ['nama' => 'Vika Febri Muliati, S.Kom., M.Kom', 'email' => 'vikamuliati@lecturer.unsia.ac.id'],
+            'MN' => ['nama' => 'Wahyu Purbo Santoso, S.E., M.M', 'email' => 'wahyupurbo@lecturer.unsia.ac.id'],
+            'AK' => ['nama' => 'Nurhayati Siregar, S.E., M.Ak., CSRS.,CSRA.,CSP', 'email' => 'nurhayatisiregar@lecturer.unsia.ac.id'],
+            'IK' => ['nama' => 'Rosanah, S.S., M.I.Kom', 'email' => 'rosanah@lecturer.unsia.ac.id'],
+            'TI' => ['nama' => 'Ir. Ahmad Chusyairi, S.Kom., M.Kom., CDS., IPM., ASEAN Eng', 'email' => 'ahmadchusyairi@lecturer.unsia.ac.id'],
+        ];
+        $kaprodiByCode = [];
+
+        foreach ($kaprodiData as $code => $data) {
+            $kaprodiByCode[$code] = User::updateOrCreate(
+                ['email' => $data['email']],
+                [
+                    'nama_lengkap' => $data['nama'],
+                    'password' => Hash::make('password'),
+                    'role' => 'kaprodi',
+                    'status' => 'active',
+                ]
+            );
+        }
+
+        User::where('email', 'if@unsia.ac.id')
+            ->where('role', 'kaprodi')
+            ->update(['status' => 'inactive']);
 
         // 4. Prodi & Pengaturan Prodi
         $prodiData = [
-            ['nama' => 'PJJ Informatika', 'kode' => 'IF', 'kaprodi' => $kaprodi->id],
-            ['nama' => 'PJJ Sistem Informasi', 'kode' => 'SI', 'kaprodi' => null],
-            ['nama' => 'PJJ Manajemen', 'kode' => 'MN', 'kaprodi' => null],
-            ['nama' => 'PJJ Akuntansi', 'kode' => 'AK', 'kaprodi' => null],
-            ['nama' => 'PJJ Komunikasi', 'kode' => 'IK', 'kaprodi' => null],
-            ['nama' => 'PJJ Teknologi Informasi', 'kode' => 'TI', 'kaprodi' => null],
+            ['nama' => 'PJJ Informatika', 'kode' => 'IF'],
+            ['nama' => 'PJJ Sistem Informasi', 'kode' => 'SI'],
+            ['nama' => 'PJJ Manajemen', 'kode' => 'MN'],
+            ['nama' => 'PJJ Akuntansi', 'kode' => 'AK'],
+            ['nama' => 'PJJ Komunikasi', 'kode' => 'IK'],
+            ['nama' => 'PJJ Teknologi Informasi', 'kode' => 'TI'],
         ];
 
         foreach ($prodiData as $p) {
@@ -87,8 +80,8 @@ class DatabaseSeeder extends Seeder
                 ['nama_prodi' => $p['nama']],
                 [
                     'kode_prodi' => $p['kode'],
-                    'id_kaprodi' => $p['kaprodi'],
-                    'jenjang' => 'S1'
+                    'id_kaprodi' => $kaprodiByCode[$p['kode']]->id,
+                    'jenjang' => 'S1',
                 ]
             );
 
@@ -104,20 +97,25 @@ class DatabaseSeeder extends Seeder
             // 5. Kurikulum Dasar (Informatika)
             if ($p['kode'] === 'IF') {
                 $mkList = [
-                    ['nama' => 'Algoritma dan Pemrograman', 'sks' => 3, 'sem' => 1],
-                    ['nama' => 'Matematika Diskrit', 'sks' => 3, 'sem' => 1],
-                    ['nama' => 'Sistem Operasi', 'sks' => 3, 'sem' => 2],
-                    ['nama' => 'Basis Data', 'sks' => 4, 'sem' => 2],
-                    ['nama' => 'Pemrograman Berorientasi Objek', 'sks' => 3, 'sem' => 3],
-                    ['nama' => 'Jaringan Komputer', 'sks' => 3, 'sem' => 3],
-                    ['nama' => 'Kecerdasan Buatan', 'sks' => 3, 'sem' => 4],
-                    ['nama' => 'Rekayasa Perangkat Lunak', 'sks' => 3, 'sem' => 4],
+                    ['kode' => 'IF101', 'nama' => 'Algoritma dan Pemrograman', 'sks' => 3, 'sem' => 1],
+                    ['kode' => 'IF102', 'nama' => 'Matematika Diskrit', 'sks' => 3, 'sem' => 1],
+                    ['kode' => 'IF201', 'nama' => 'Sistem Operasi', 'sks' => 3, 'sem' => 2],
+                    ['kode' => 'IF202', 'nama' => 'Basis Data', 'sks' => 4, 'sem' => 2],
+                    ['kode' => 'IF301', 'nama' => 'Pemrograman Berorientasi Objek', 'sks' => 3, 'sem' => 3],
+                    ['kode' => 'IF302', 'nama' => 'Jaringan Komputer', 'sks' => 3, 'sem' => 3],
+                    ['kode' => 'IF401', 'nama' => 'Kecerdasan Buatan', 'sks' => 3, 'sem' => 4],
+                    ['kode' => 'IF402', 'nama' => 'Rekayasa Perangkat Lunak', 'sks' => 3, 'sem' => 4],
                 ];
 
                 foreach ($mkList as $mk) {
                     KurikulumMk::updateOrCreate(
                         ['id_prodi' => $prodi->id, 'nama_mk' => $mk['nama']],
-                        ['sks' => $mk['sks'], 'semester' => $mk['sem'], 'tipe_mk' => 'Wajib']
+                        [
+                            'kode_mk' => $mk['kode'],
+                            'sks' => $mk['sks'],
+                            'semester' => $mk['sem'],
+                            'tipe_mk' => 'Wajib',
+                        ]
                     );
                 }
             }

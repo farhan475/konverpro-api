@@ -11,23 +11,23 @@ class EnsureRole
     /**
      * Handle an incoming request.
      *
-     * @param  \Closure(\Illuminate\Http\Request): (\Symfony\Component\HttpFoundation\Response)  $next
+     * @param  Closure(Request): (Response)  $next
      */
     public function handle(Request $request, Closure $next, string ...$roles): Response
     {
         $user = $request->user();
 
-        if (!$user) {
+        if (! $user) {
             return response()->json([
                 'success' => false,
-                'message' => 'Unauthenticated.'
+                'message' => 'Unauthenticated.',
             ], 401);
         }
 
-        if (!in_array($user->role->value, $roles)) {
+        if (! in_array($user->role->value, $roles)) {
             return response()->json([
                 'success' => false,
-                'message' => 'Unauthorized. Role required: ' . implode(' or ', $roles)
+                'message' => 'Unauthorized. Role required: '.implode(' or ', $roles),
             ], 403);
         }
 

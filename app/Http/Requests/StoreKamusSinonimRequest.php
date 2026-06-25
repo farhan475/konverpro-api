@@ -10,6 +10,7 @@ class StoreKamusSinonimRequest extends FormRequest
     public function authorize(): bool
     {
         $user = $this->user();
+
         return $user instanceof User && in_array($user->role->value, ['superadmin', 'akademik']);
     }
 

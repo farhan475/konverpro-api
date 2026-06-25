@@ -5,8 +5,9 @@ namespace App\Http\Controllers\Api\Akademik;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreKamusSinonimRequest;
 use App\Models\KamusSinonim;
-use App\Services\AuditService;
 use App\Models\User;
+use App\Services\AuditService;
+use App\Services\KamusSinonimService;
 use App\Traits\ApiResponse;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -15,15 +16,19 @@ class KamusSinonimController extends Controller
 {
     use ApiResponse;
 
-    public function __construct(private AuditService $audit) {}
+    public function __construct(
+        private AuditService $audit,
+        private KamusSinonimService $kamusService
+    ) {}
 
     public function index(Request $request): JsonResponse
     {
-        $search = (string) $request->input('search', '');
+        $searchInput = $request->input('search');
+        $search = is_string($searchInput) ? $searchInput : '';
         $data = KamusSinonim::when($search !== '', function ($q) use ($search) {
-                $q->where('kata_utama', 'like', "%{$search}%")
-                  ->orWhere('sinonim', 'like', "%{$search}%");
-            })
+            $q->where('kata_utama', 'like', "%{$search}%")
+                ->orWhere('sinonim', 'like', "%{$search}%");
+        })
             ->orderBy('kata_utama')
             ->paginate(30);
 
@@ -32,21 +37,13 @@ class KamusSinonimController extends Controller
 
     public function store(StoreKamusSinonimRequest $request): JsonResponse
     {
-        $validated = $request->validated();
-        $validated['kata_utama'] = strtolower(trim((string) $validated['kata_utama']));
-        $validated['sinonim']    = strtolower(trim((string) $validated['sinonim']));
+        $validated = $this->kamusService->normalize($request->validated());
 
         /** @var User $user */
         $user = $request->user();
         $validated['created_by'] = $user->id;
 
-        $exists = KamusSinonim::where('kata_utama', $validated['kata_utama'])
-            ->where('sinonim', $validated['sinonim'])
-            ->exists();
-
-        if ($exists) {
-            return $this->errorResponse('Pasangan ini sudah ada di kamus.', 422);
-        }
+        $this->kamusService->ensureUnique($validated);
 
         $kamus = KamusSinonim::create($validated);
         $this->audit->log('kamus.created', 'KamusSinonim', $kamus->id);
@@ -56,18 +53,8 @@ class KamusSinonimController extends Controller
 
     public function update(StoreKamusSinonimRequest $request, KamusSinonim $kamusSinonim): JsonResponse
     {
-        $validated = $request->validated();
-        $validated['kata_utama'] = strtolower(trim((string) $validated['kata_utama']));
-        $validated['sinonim']    = strtolower(trim((string) $validated['sinonim']));
-
-        $exists = KamusSinonim::where('kata_utama', $validated['kata_utama'])
-            ->where('sinonim', $validated['sinonim'])
-            ->where('id', '!=', $kamusSinonim->id)
-            ->exists();
-
-        if ($exists) {
-            return $this->errorResponse('Pasangan ini sudah ada di kamus.', 422);
-        }
+        $validated = $this->kamusService->normalize($request->validated());
+        $this->kamusService->ensureUnique($validated, $kamusSinonim);
 
         $kamusSinonim->update($validated);
         $this->audit->log('kamus.updated', 'KamusSinonim', $kamusSinonim->id);
