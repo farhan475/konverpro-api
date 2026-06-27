@@ -9,6 +9,7 @@ use App\Services\InternalNotificationService;
 use App\Traits\ApiResponse;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 
 class ConfigController extends Controller
 {
@@ -97,6 +98,9 @@ class ConfigController extends Controller
 
             PengaturanGlobal::set($key, $value ?? '');
         }
+
+        Cache::forget('fuzzy_threshold_auto');
+        Cache::forget('fuzzy_threshold_sumopod');
 
         $this->audit->log('config.updated');
         $this->notifications->notifyRole(

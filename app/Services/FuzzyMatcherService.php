@@ -23,7 +23,7 @@ class FuzzyMatcherService
         return ($levScore + $jaroScore) / 2;
     }
 
-    private function normalize(string $str): string
+    public function normalize(string $str): string
     {
         return strtolower(trim((string) preg_replace('/\s+/', ' ', $str)));
     }

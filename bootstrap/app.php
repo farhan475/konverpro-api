@@ -17,6 +17,7 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        $middleware->prepend(\App\Http\Middleware\AuthenticateFromCookie::class);
         $middleware->alias([
             'role' => EnsureRole::class,
             'auth.cookie' => UseSanctumTokenCookie::class,
