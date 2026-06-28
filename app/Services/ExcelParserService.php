@@ -48,7 +48,7 @@ class ExcelParserService
         $errors = [];
         $seenNims = [];
 
-        DB::transaction(function () use ($dataMahasiswa, $transkripByNim, $createdBy, &$results, &$errors) {
+        DB::transaction(function () use ($dataMahasiswa, $transkripByNim, $createdBy, &$results, &$errors, &$seenNims) {
             for ($i = 2; $i <= count($dataMahasiswa); $i++) {
                 $row = $dataMahasiswa[$i] ?? [];
                 $nimAsal = trim((string) ($row['A'] ?? ''));

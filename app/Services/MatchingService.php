@@ -28,6 +28,7 @@ class MatchingService
 
         $transkrip = $pendaftar->transkripAsal;
         $kurikulum = KurikulumMk::where('id_prodi', $pendaftar->id_prodi)->get();
+        $kamus = KamusSinonim::where('is_active', true)->get();
 
         DB::beginTransaction();
         try {
@@ -51,13 +52,13 @@ class MatchingService
                     continue;
                 }
 
-                $namaNormal = $this->normalizeWithKamus($item->nama_mk_asal);
+                $namaNormal = $this->normalizeWithKamus($item->nama_mk_asal, $kamus);
 
                 $bestMatch = null;
                 $bestScore = 0.0;
 
                 foreach ($kurikulum as $mkTujuan) {
-                    $namaTujuanNormal = $this->normalizeWithKamus($mkTujuan->nama_mk);
+                    $namaTujuanNormal = $this->normalizeWithKamus($mkTujuan->nama_mk, $kamus);
                     $score = $this->fuzzyMatcher->getScore($namaNormal, $namaTujuanNormal);
 
                     if ($score > $bestScore) {
@@ -110,10 +111,9 @@ class MatchingService
         }
     }
 
-    protected function normalizeWithKamus(string $namaMk): string
+    protected function normalizeWithKamus(string $namaMk, \Illuminate\Support\Collection $kamus): string
     {
         $normalized = $this->normalizeText($namaMk);
-        $kamus = KamusSinonim::where('is_active', true)->get();
 
         foreach ($kamus as $item) {
             $kataUtama = $this->normalizeText($item->kata_utama);

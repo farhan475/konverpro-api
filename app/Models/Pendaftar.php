@@ -33,8 +33,6 @@ class Pendaftar extends Model
         'approved_at',
         'hash_ba_digital',
         'current_ba_document_id',
-        'portal_token',
-        'portal_token_hash',
         'notif_sent_at',
         'ba_wa_sent_at',
     ];

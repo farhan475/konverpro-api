@@ -20,7 +20,7 @@ class StorePendaftarRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'file_excel' => 'required|file|mimes:xlsx,xls',
+            'file_excel' => 'required|file|mimes:xlsx,xls|max:10240',
             'file_pdf' => 'nullable|file|mimes:pdf',
         ];
     }

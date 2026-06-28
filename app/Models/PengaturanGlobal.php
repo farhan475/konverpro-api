@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Contracts\Encryption\DecryptException;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Crypt;
 
 class PengaturanGlobal extends Model
@@ -32,24 +33,27 @@ class PengaturanGlobal extends Model
 
     /**
      * Ambil nilai setting. Key sensitif otomatis didekripsi.
+     * Hasil di-cache 1 jam. Cache di-flush saat set() dipanggil.
      */
     public static function get(string $key, string $default = ''): string
     {
-        $record = static::find($key);
-        if (! $record || $record->setting_value === null || $record->setting_value === '') {
-            return $default;
-        }
-
-        if (in_array($key, self::ENCRYPTED_KEYS)) {
-            try {
-                return Crypt::decryptString($record->setting_value);
-            } catch (DecryptException) {
-                // Nilai belum terenkripsi (misal dari seeder lama) — kembalikan apa adanya
-                return $record->setting_value;
+        return Cache::remember("pengaturan_global.{$key}", 3600, function () use ($key, $default): string {
+            $record = static::find($key);
+            if (! $record || $record->setting_value === null || $record->setting_value === '') {
+                return $default;
             }
-        }
 
-        return (string) $record->setting_value;
+            if (in_array($key, self::ENCRYPTED_KEYS)) {
+                try {
+                    return Crypt::decryptString($record->setting_value);
+                } catch (DecryptException) {
+                    // Nilai belum terenkripsi (misal dari seeder lama) — kembalikan apa adanya
+                    return $record->setting_value;
+                }
+            }
+
+            return (string) $record->setting_value;
+        });
     }
 
     /**
@@ -67,6 +71,8 @@ class PengaturanGlobal extends Model
             ['setting_key' => $key],
             ['setting_value' => $stored]
         );
+
+        Cache::forget("pengaturan_global.{$key}");
     }
 
     public static function isEncrypted(string $key): bool

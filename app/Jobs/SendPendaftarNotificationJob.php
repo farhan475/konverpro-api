@@ -25,6 +25,17 @@ class SendPendaftarNotificationJob implements ShouldQueue
         $this->afterCommit();
     }
 
+    public function failed(?\Throwable $exception): void
+    {
+        $audit = app(AuditService::class);
+        $audit->log(
+            'notification.send_failed',
+            'Pendaftar',
+            $this->pendaftarId,
+            "Notifikasi status {$this->status} gagal dikirim setelah {$this->tries} percobaan: {$exception?->getMessage()}"
+        );
+    }
+
     public function handle(NotifikasiService $notifications, AuditService $audit): void
     {
         $pendaftar = Pendaftar::with(['creator', 'prodi'])->findOrFail($this->pendaftarId);

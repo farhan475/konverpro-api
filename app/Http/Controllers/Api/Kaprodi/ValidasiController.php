@@ -12,6 +12,7 @@ use App\Models\Pendaftar;
 use App\Models\PengaturanProdi;
 use App\Models\Prodi;
 use App\Services\AuditService;
+use Illuminate\Support\Facades\DB;
 use App\Services\BeritaAcaraService;
 use App\Services\CourseEquivalencyService;
 use App\Services\InternalNotificationService;
@@ -162,20 +163,29 @@ class ValidasiController extends Controller
             return $this->errorResponse($limitError, 422);
         }
 
-        $documentData = $this->beritaAcara->approvalDocumentData($pendaftar);
-        $pendaftar->update(array_merge([
-            'status' => StatusPendaftarEnum::APPROVED,
-            'total_sks_diakui' => $totalSksDiakui,
-        ], $documentData));
-        $pendaftar->refresh();
-        $this->beritaAcara->createDocument($pendaftar, (string) Auth::id());
-        $this->equivalencies->learnFromApproval($pendaftar, (string) Auth::id());
+        DB::beginTransaction();
+        try {
+            $documentData = $this->beritaAcara->approvalDocumentData($pendaftar);
+            $pendaftar->update(array_merge([
+                'status' => StatusPendaftarEnum::APPROVED,
+                'total_sks_diakui' => $totalSksDiakui,
+            ], $documentData));
+            $pendaftar->refresh();
+            $this->beritaAcara->createDocument($pendaftar, (string) Auth::id());
+            $this->equivalencies->learnFromApproval($pendaftar, (string) Auth::id());
 
-        SendPendaftarNotificationJob::dispatch($pendaftar->id, 'Approved', (string) Auth::id());
-        $this->notifyCreator($pendaftar, 'conversion_approved', 'Konversi disetujui', "Konversi {$pendaftar->nama_lengkap} telah disetujui.");
-        $this->audit->log('approve_konversi', 'Pendaftar', $pendaftar->id, "Approved conversion for {$pendaftar->nama_lengkap}");
+            SendPendaftarNotificationJob::dispatch($pendaftar->id, 'Approved', (string) Auth::id());
+            $this->notifyCreator($pendaftar, 'conversion_approved', 'Konversi disetujui', "Konversi {$pendaftar->nama_lengkap} telah disetujui.");
+            $this->audit->log('approve_konversi', 'Pendaftar', $pendaftar->id, "Approved conversion for {$pendaftar->nama_lengkap}");
 
-        return $this->successResponse(null, 'Conversion approved.');
+            DB::commit();
+
+            return $this->successResponse(null, 'Conversion approved.');
+        } catch (\Exception $e) {
+            DB::rollBack();
+
+            return $this->errorResponse('Gagal menyetujui konversi: '.$e->getMessage(), 500);
+        }
     }
 
     public function bulkApprove(Request $request): JsonResponse
@@ -195,6 +205,7 @@ class ValidasiController extends Controller
         $pendaftars = Pendaftar::whereIn('id', $ids)
             ->whereIn('id_prodi', $prodiIds)
             ->where('status', StatusPendaftarEnum::PENDING_KAPRODI)
+            ->with(['hasilKonversi', 'prodi.pengaturan', 'prodi.kurikulumMk'])
             ->get();
 
         if ($pendaftars->count() !== count(array_unique($ids))) {
@@ -202,7 +213,7 @@ class ValidasiController extends Controller
         }
 
         foreach ($pendaftars as $pendaftar) {
-            $totalSksDiakui = (int) $pendaftar->hasilKonversi()->where('is_unmatched', false)->sum('sks_diakui');
+            $totalSksDiakui = (int) $pendaftar->hasilKonversi->where('is_unmatched', false)->sum('sks_diakui');
             $limitError = $this->approvalLimitError($pendaftar, $totalSksDiakui);
             if ($limitError !== null) {
                 return $this->errorResponse("{$pendaftar->nama_lengkap}: {$limitError}", 422);
@@ -212,7 +223,7 @@ class ValidasiController extends Controller
         DB::beginTransaction();
         try {
             foreach ($pendaftars as $pendaftar) {
-                $totalSksDiakui = (int) $pendaftar->hasilKonversi()->where('is_unmatched', false)->sum('sks_diakui');
+                $totalSksDiakui = (int) $pendaftar->hasilKonversi->where('is_unmatched', false)->sum('sks_diakui');
 
                 $documentData = $this->beritaAcara->approvalDocumentData($pendaftar);
                 $pendaftar->update(array_merge([

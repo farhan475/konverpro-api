@@ -54,13 +54,18 @@ Route::middleware(['auth.cookie'])->group(function () {
         Route::get('prodi/{prodi}/settings', [ProdiController::class, 'getSettings']);
         Route::put('prodi/{prodi}/settings', [ProdiController::class, 'updateSettings']);
         Route::apiResource('prodi', ProdiController::class);
-        Route::apiResource('kamus-sinonim', Superadmin\KamusSinonimController::class)->only(['index', 'store', 'update', 'destroy']);
+        Route::apiResource('kamus-sinonim', Superadmin\KamusSinonimController::class)->only(['index', 'store', 'update', 'destroy'])->names(['index' => 'superadmin.kamus-sinonim.index', 'store' => 'superadmin.kamus-sinonim.store', 'update' => 'superadmin.kamus-sinonim.update', 'destroy' => 'superadmin.kamus-sinonim.destroy']);
         Route::get('config', [Superadmin\ConfigController::class, 'index']);
         Route::put('config', [Superadmin\ConfigController::class, 'update']);
         Route::get('audit', [Superadmin\AuditController::class, 'index']);
         Route::get('laporan', [Superadmin\LaporanController::class, 'index']);
         Route::get('equivalencies', [Superadmin\CourseEquivalencyController::class, 'index']);
         Route::put('equivalencies/{equivalency}', [Superadmin\CourseEquivalencyController::class, 'update']);
+        Route::get('ba-templates', [Superadmin\BaTemplateController::class, 'index']);
+        Route::get('ba-templates/{baTemplate}', [Superadmin\BaTemplateController::class, 'show']);
+        Route::put('ba-templates/{baTemplate}', [Superadmin\BaTemplateController::class, 'update']);
+        Route::post('ba-templates/{baTemplate}/set-default', [Superadmin\BaTemplateController::class, 'setDefault']);
+        Route::get('ba-templates/{baTemplate}/preview', [Superadmin\BaTemplateController::class, 'preview']);
     });
 
     // Admin
@@ -89,7 +94,7 @@ Route::middleware(['auth.cookie'])->group(function () {
         Route::post('kurikulum', [Akademik\KurikulumController::class, 'store'])->name('kurikulum.store');
         Route::match(['put', 'patch'], 'kurikulum/{kurikulum}', [Akademik\KurikulumController::class, 'update'])->name('kurikulum.update');
         Route::delete('kurikulum/{kurikulum}', [Akademik\KurikulumController::class, 'destroy'])->name('kurikulum.destroy');
-        Route::apiResource('kamus-sinonim', Akademik\KamusSinonimController::class)->only(['index', 'store', 'update', 'destroy']);
+        Route::apiResource('kamus-sinonim', Akademik\KamusSinonimController::class)->only(['index', 'store', 'update', 'destroy'])->names(['index' => 'akademik.kamus-sinonim.index', 'store' => 'akademik.kamus-sinonim.store', 'update' => 'akademik.kamus-sinonim.update', 'destroy' => 'akademik.kamus-sinonim.destroy']);
         Route::get('appeals', [Akademik\AppealController::class, 'index']);
         Route::put('appeals/{appeal}', [Akademik\AppealController::class, 'resolve']);
     });
@@ -101,9 +106,9 @@ Route::middleware(['auth.cookie'])->group(function () {
         Route::post('validasi/bulk-approve', [Kaprodi\ValidasiController::class, 'bulkApprove']);
         Route::get('validasi/{pendaftar}', [Kaprodi\ValidasiController::class, 'show']);
         Route::put('validasi/{hasilKonversi}', [Kaprodi\ValidasiController::class, 'updateHasil']);
-        Route::post('validasi/{pendaftar}/approve', [Kaprodi\ValidasiController::class, 'approve']);
-        Route::post('validasi/{pendaftar}/revisi', [Kaprodi\ValidasiController::class, 'revisi']);
-        Route::post('validasi/{pendaftar}/reject', [Kaprodi\ValidasiController::class, 'reject']);
+        Route::post('validasi/{pendaftar}/approve', [Kaprodi\ValidasiController::class, 'approve'])->middleware('throttle:10,1');
+        Route::post('validasi/{pendaftar}/revisi', [Kaprodi\ValidasiController::class, 'revisi'])->middleware('throttle:10,1');
+        Route::post('validasi/{pendaftar}/reject', [Kaprodi\ValidasiController::class, 'reject'])->middleware('throttle:10,1');
         Route::get('validasi/{pendaftar}/download-ba', [Kaprodi\DocumentController::class, 'downloadBa']);
         Route::post('validasi/{pendaftar}/send-ba-whatsapp', [Kaprodi\DocumentController::class, 'sendBaWhatsapp'])
             ->middleware('throttle:3,1');
