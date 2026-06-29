@@ -17,6 +17,7 @@ class BaDocument extends Model
         'version',
         'document_number',
         'document_hash',
+        'signature_hash',
         'status',
         'approved_by',
         'approved_at',

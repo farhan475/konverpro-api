@@ -318,6 +318,9 @@
 <div class="hash">
     <strong>VERIFIKASI DOKUMEN DIGITAL</strong><br>
     Digital Signature Hash: {{ $pendaftar->hash_ba_digital ?? '-' }}<br>
+    @if($document && $document->signature_hash)
+        Signature Hash: {{ $document->signature_hash }}<br>
+    @endif
     Nomor Dokumen: {{ $pendaftar->nomor_ba ?? '-' }}<br>
     Disetujui: {{ $tanggalPersetujuan->format('Y-m-d H:i:s') }} WIB<br>
     Dicetak otomatis oleh KonverPro UNSIA pada {{ now()->format('Y-m-d H:i:s') }} WIB<br><br>

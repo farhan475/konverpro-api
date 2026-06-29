@@ -102,6 +102,9 @@ Route::middleware(['auth.cookie'])->group(function () {
     // Kaprodi
     Route::middleware('role:kaprodi')->prefix('kaprodi')->group(function () {
         Route::get('dashboard', [Kaprodi\DashboardController::class, 'index']);
+        // Antrean (read-only, scoped to kaprodi's prodi)
+        Route::get('antrean', [Kaprodi\AntreanController::class, 'index']);
+        Route::get('antrean/{pendaftar}', [Kaprodi\AntreanController::class, 'show']);
         Route::get('validasi', [Kaprodi\ValidasiController::class, 'index']);
         Route::post('validasi/bulk-approve', [Kaprodi\ValidasiController::class, 'bulkApprove']);
         Route::get('validasi/{pendaftar}', [Kaprodi\ValidasiController::class, 'show']);

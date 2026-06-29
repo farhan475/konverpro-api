@@ -32,16 +32,16 @@ class DocumentVerificationService
     {
         $pendaftar->loadMissing('currentBaDocument');
         $document = $pendaftar->currentBaDocument;
-        $documentId = $document instanceof BaDocument ? $document->id : null;
-        if (! is_string($documentId)) {
+        if (! $document instanceof BaDocument) {
             throw new \RuntimeException('Dokumen Berita Acara belum tersedia untuk diverifikasi.');
         }
-        $configuredUrl = config('konverpro.frontend_url');
-        $frontendUrl = rtrim(is_string($configuredUrl) ? $configuredUrl : 'http://localhost:3000', '/');
+
+        $verifyUrl = rtrim((string) config('app.url', 'http://localhost'), '/')
+            . '/verify/' . urlencode($document->document_number);
 
         $result = (new Builder(
             writer: new PngWriter,
-            data: "{$frontendUrl}/verify/{$documentId}",
+            data: $verifyUrl,
             encoding: new Encoding('UTF-8'),
             errorCorrectionLevel: ErrorCorrectionLevel::High,
             size: 320,

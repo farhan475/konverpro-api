@@ -306,6 +306,19 @@ class BeritaAcaraService
         $nomorBa = $this->generateNomor($pendaftar, (int) $approvedAt->format('Y'));
         $pendaftar->loadMissing('hasilKonversi');
 
+        // Signature hash per spec (for public verification)
+        $prodiTujuan = $pendaftar->prodi
+            ? trim(($pendaftar->prodi->jenjang ?? '') . ' ' . ($pendaftar->prodi->nama_prodi ?? ''))
+            : '';
+        $signatureHash = hash('sha256', implode('|', [
+            $nomorBa,
+            $pendaftar->nama_lengkap,
+            $pendaftar->nim_asal ?? '',
+            $prodiTujuan,
+            $approvedAt->format('Y-m-d'),
+            (string) $pendaftar->hasilKonversi()->where('is_unmatched', false)->sum('sks_diakui'),
+        ]));
+
         $snapshot = [
             'pendaftar_id' => $pendaftar->id,
             'nomor_ba' => $nomorBa,
@@ -326,10 +339,11 @@ class BeritaAcaraService
             'nomor_ba' => $nomorBa,
             'approved_at' => $approvedAt,
             'hash_ba_digital' => hash('sha256', json_encode($snapshot, JSON_THROW_ON_ERROR)),
+            'signature_hash' => $signatureHash,
         ];
     }
 
-    public function createDocument(Pendaftar $pendaftar, string $approvedBy): BaDocument
+    public function createDocument(Pendaftar $pendaftar, string $approvedBy, ?string $signatureHash = null): BaDocument
     {
         $maxVersion = $pendaftar->baDocuments()->max('version');
         $version = (is_numeric($maxVersion) ? (int) $maxVersion : 0) + 1;
@@ -338,6 +352,7 @@ class BeritaAcaraService
             'version' => $version,
             'document_number' => (string) $pendaftar->nomor_ba,
             'document_hash' => (string) $pendaftar->hash_ba_digital,
+            'signature_hash' => $signatureHash,
             'status' => 'final',
             'approved_by' => $approvedBy,
             'approved_at' => $pendaftar->approved_at ?? now(),
@@ -355,7 +370,7 @@ class BeritaAcaraService
         $data = $this->approvalDocumentData($pendaftar);
         $pendaftar->update($data);
         $pendaftar->refresh();
-        $replacement = $this->createDocument($pendaftar, $approvedBy);
+        $replacement = $this->createDocument($pendaftar, $approvedBy, $data['signature_hash'] ?? null);
 
         if ($previous) {
             $previous->update([

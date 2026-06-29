@@ -12,7 +12,6 @@ use App\Models\Pendaftar;
 use App\Models\PengaturanProdi;
 use App\Models\Prodi;
 use App\Services\AuditService;
-use Illuminate\Support\Facades\DB;
 use App\Services\BeritaAcaraService;
 use App\Services\CourseEquivalencyService;
 use App\Services\InternalNotificationService;
@@ -21,6 +20,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use App\Jobs\SendPendaftarNotificationJob as SendPendaftarNotificationJobAlias;
 
 class ValidasiController extends Controller
 {
@@ -171,7 +171,8 @@ class ValidasiController extends Controller
                 'total_sks_diakui' => $totalSksDiakui,
             ], $documentData));
             $pendaftar->refresh();
-            $this->beritaAcara->createDocument($pendaftar, (string) Auth::id());
+            $signatureHash = $documentData['signature_hash'] ?? null;
+            $this->beritaAcara->createDocument($pendaftar, (string) Auth::id(), $signatureHash);
             $this->equivalencies->learnFromApproval($pendaftar, (string) Auth::id());
 
             SendPendaftarNotificationJob::dispatch($pendaftar->id, 'Approved', (string) Auth::id());
@@ -231,7 +232,8 @@ class ValidasiController extends Controller
                     'total_sks_diakui' => $totalSksDiakui,
                 ], $documentData));
                 $pendaftar->refresh();
-                $this->beritaAcara->createDocument($pendaftar, (string) Auth::id());
+                $signatureHash = $documentData['signature_hash'] ?? null;
+                $this->beritaAcara->createDocument($pendaftar, (string) Auth::id(), $signatureHash);
                 $this->equivalencies->learnFromApproval($pendaftar, (string) Auth::id());
 
                 SendPendaftarNotificationJob::dispatch($pendaftar->id, 'Approved', (string) Auth::id());
